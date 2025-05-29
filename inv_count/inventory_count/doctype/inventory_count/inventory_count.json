@@ -1,12 +1,19 @@
 {
  "actions": [],
- "allow_rename": 1,
+ "autoname": "format:Inv-{YYYY}-{MM}-{DD}-{##}",
  "creation": "2025-05-29 10:26:51.682859",
  "doctype": "DocType",
  "engine": "InnoDB",
  "field_order": [
   "section_break_zhmm",
-  "amended_from"
+  "amended_from",
+  "location",
+  "warehouse",
+  "warehouse_bin",
+  "date",
+  "section_break_slsq",
+  "code",
+  "inv_physical_items"
  ],
  "fields": [
   {
@@ -22,16 +29,55 @@
    "print_hide": 1,
    "read_only": 1,
    "search_index": 1
+  },
+  {
+   "fieldname": "location",
+   "fieldtype": "Select",
+   "label": "Location"
+  },
+  {
+   "fieldname": "warehouse",
+   "fieldtype": "Select",
+   "label": "Warehouse"
+  },
+  {
+   "fieldname": "warehouse_bin",
+   "fieldtype": "Select",
+   "label": "Warehouse Bin"
+  },
+  {
+   "default": "Today",
+   "fieldname": "date",
+   "fieldtype": "Date",
+   "in_list_view": 1,
+   "label": "Date",
+   "reqd": 1
+  },
+  {
+   "fieldname": "section_break_slsq",
+   "fieldtype": "Section Break"
+  },
+  {
+   "fieldname": "inv_physical_items",
+   "fieldtype": "Table",
+   "label": "Scanned Items",
+   "options": "Inv_physical_items"
+  },
+  {
+   "fieldname": "code",
+   "fieldtype": "Data",
+   "label": "Code"
   }
  ],
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "is_submittable": 1,
  "links": [],
- "modified": "2025-05-29 10:26:51.682859",
+ "modified": "2025-05-29 14:05:53.202199",
  "modified_by": "Administrator",
  "module": "Inventory Count",
  "name": "Inventory Count",
+ "naming_rule": "Expression",
  "owner": "Administrator",
  "permissions": [
   {
