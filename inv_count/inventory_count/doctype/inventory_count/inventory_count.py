@@ -7,5 +7,3 @@ from frappe.model.document import Document # type: ignore
 
 class InventoryCount(Document):
 	pass
-
-import pandas as pd 
