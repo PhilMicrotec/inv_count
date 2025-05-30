@@ -61,7 +61,6 @@ def import_data_with_pandas(inventory_count_name=None):
             child_item = inventory_count_doc.append(child_table_field_name, {})
             
             # Mappage des colonnes du CSV aux champs de la childtable 'inv_virtual_items'
-            # Assurez-vous que ces noms correspondent aux colonnes de votre test.csv
             try:
                 child_item.location = row['Location']
                 child_item.iv_item_recid = row['IV_Item_RecID']
