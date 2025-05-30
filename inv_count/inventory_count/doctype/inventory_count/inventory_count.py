@@ -48,9 +48,7 @@ def import_data_with_pandas(inventory_count_name=None):
             inventory_count_doc = frappe.get_doc(parent_doctype, inventory_count_name)
             print(f"Document Inventory Count '{inventory_count_name}' trouvé.")
         else:
-            inventory_count_doc = frappe.new_doc(parent_doctype)
-            if inventory_count_name:
-                inventory_count_doc.name = inventory_count_name
+            print(f"Document not found")
 
 
         # Vider la childtable avant d'ajouter de nouvelles entrées (optionnel)
@@ -104,3 +102,93 @@ def import_data_with_pandas(inventory_count_name=None):
         traceback.print_exc() # Pour obtenir plus de détails sur l'erreur
         frappe.msgprint(f"Une erreur est survenue lors de l'importation: {e}", title="Erreur d'importation", indicator='red')
         return {"status": "error", "message": str(e)}
+
+@frappe.whitelist()
+def compare_child_tables(doc_name):
+    """
+    Compare 'inv_physical_items' and 'inv_virtual_items' child tables
+    of an 'Inventory Count' document and populate the 'inv_difference' child table
+    with any discrepancies, converting quantities to integers for comparison.
+
+    Args:
+        doc_name (str): The name of the 'Inventory Count' document.
+
+    Returns:
+        str: A message indicating the success or failure of the operation.
+    """
+    try:
+        # Get the parent Inventory Count document
+        doc = frappe.get_doc("Inventory Count", doc_name)
+
+        # Get data from the two source child tables
+        physical_items = doc.get("inv_physical_items")
+        virtual_items = doc.get("inv_virtual_items")
+
+        # Prepare dictionaries for easier lookup, converting quantities to int
+        # Use int() with a default of 0 if the value is None or cannot be converted
+        physical_items_map = {
+            row.get("code"): int(row.get("qty") or 0)
+            for row in physical_items
+        }
+        virtual_items_map = {
+            row.get("item_id"): int(row.get("qoh") or 0)
+            for row in virtual_items
+        }
+
+        # Clear existing rows in inv_difference before adding new ones
+        doc.set("inv_difference", [])
+
+        # --- Compare Physical Items against Virtual Items ---
+        for item_code, physical_qty_int in physical_items_map.items():
+            if item_code is None:
+                continue
+
+            if item_code not in virtual_items_map:
+                # Item found in physical but not in virtual
+                doc.append("inv_difference", {
+                    "item_code": item_code,
+                    # Ensure fields in inv_difference are set to integers
+                    "physical_qty": physical_qty_int,
+                    "virtual_qty": 0,
+                    "difference_qty": physical_qty_int, # physical - 0
+                    "difference_reason": "Article non trouvé dans l'inventaire virtuel"
+                })
+            else:
+                virtual_qty_int = virtual_items_map[item_code]
+                
+                # Direct integer comparison
+                if virtual_qty_int != physical_qty_int:
+                    # Item found in both, but quantities mismatch
+                    difference = physical_qty_int - virtual_qty_int
+                    doc.append("inv_difference", {
+                        "item_code": item_code,
+                        "physical_qty": physical_qty_int,
+                        "virtual_qty": virtual_qty_int,
+                        "difference_qty": difference,
+                        "difference_reason": "Quantité différente"
+                    })
+
+        # --- Compare Virtual Items against Physical Items (to find items only in virtual) ---
+        for item_code, virtual_qty_int in virtual_items_map.items():
+            if item_code is None:
+                continue
+
+            if item_code not in physical_items_map:
+                # Item found in virtual but not in physical
+                difference = 0 - virtual_qty_int # 0 - virtual
+                doc.append("inv_difference", {
+                    "item_code": item_code,
+                    "physical_qty": 0,
+                    "virtual_qty": virtual_qty_int,
+                    "difference_qty": difference,
+                    "difference_reason": "Article non trouvé dans l'inventaire physique"
+                })
+
+        # Save the parent document to persist changes in inv_difference
+        doc.save()
+        frappe.db.commit()
+
+
+    except Exception as e:
+        frappe.log_error(frappe.get_traceback(), "Error in compare_child_tables")
+        return f"Une erreur est survenue lors de la comparaison des tables : {e}"

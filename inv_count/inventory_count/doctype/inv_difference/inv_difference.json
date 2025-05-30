@@ -6,26 +6,44 @@
  "editable_grid": 1,
  "engine": "InnoDB",
  "field_order": [
-  "code",
-  "qty"
+  "item_code",
+  "item_name",
+  "physical_qty",
+  "virtual_qty",
+  "difference_reason"
  ],
  "fields": [
   {
-   "fieldname": "code",
+   "fieldname": "item_code",
    "fieldtype": "Data",
    "label": "Code"
   },
   {
-   "fieldname": "qty",
+   "fieldname": "item_name",
    "fieldtype": "Data",
-   "label": "qty"
+   "label": "item_name"
+  },
+  {
+   "fieldname": "physical_qty",
+   "fieldtype": "Data",
+   "label": "physical_qty"
+  },
+  {
+   "fieldname": "virtual_qty",
+   "fieldtype": "Data",
+   "label": "virtual_qty"
+  },
+  {
+   "fieldname": "difference_reason",
+   "fieldtype": "Small Text",
+   "label": "difference_reason"
   }
  ],
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "istable": 1,
  "links": [],
- "modified": "2025-05-30 13:34:23.880589",
+ "modified": "2025-05-30 14:34:58.490367",
  "modified_by": "Administrator",
  "module": "Inventory Count",
  "name": "Inv_difference",

@@ -136,7 +136,26 @@ frappe.ui.form.on('Inventory Count', {
                         });
                     }
                 });
-            }, __('Actions')); // Le deuxième argument est la catégorie du bouton
+            }); // Le deuxième argument est la catégorie du bouton
         }
+
+        frm.add_custom_button('Compare Tables (Server Side)', function() {
+            frappe.call({
+                method: "inv_count.inventory_count.doctype.inventory_count.inventory_count.compare_child_tables",
+                args: {
+                    doc_name: frm.doc.name
+                },
+                callback: function(r) {
+                    if (r.message) {
+                        frappe.msgprint(r.message);
+                        // Recharger la childtable inv_difference pour afficher les nouvelles données
+                        frm.refresh_field('inv_difference');
+                    }
+                },
+                error: function(err) {
+                    frappe.msgprint(__("Erreur lors de la comparaison : ") + err.message);
+                }
+            });
+        });
     }
 });
