@@ -6,19 +6,38 @@
  "editable_grid": 1,
  "engine": "InnoDB",
  "field_order": [
-  "data_jyud"
+  "location",
+  "iv_item_recid",
+  "item_id",
+  "shortdescription"
  ],
  "fields": [
   {
-   "fieldname": "data_jyud",
-   "fieldtype": "Data"
+   "fieldname": "location",
+   "fieldtype": "Data",
+   "label": "Location"
+  },
+  {
+   "fieldname": "iv_item_recid",
+   "fieldtype": "Data",
+   "label": "IV_Item_RecID"
+  },
+  {
+   "fieldname": "item_id",
+   "fieldtype": "Data",
+   "label": "Item_ID"
+  },
+  {
+   "fieldname": "shortdescription",
+   "fieldtype": "Data",
+   "label": "ShortDescription"
   }
  ],
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "istable": 1,
  "links": [],
- "modified": "2025-05-29 12:50:47.600773",
+ "modified": "2025-05-30 10:26:19.394989",
  "modified_by": "Administrator",
  "module": "Inventory Count",
  "name": "Inv_virtual_items",

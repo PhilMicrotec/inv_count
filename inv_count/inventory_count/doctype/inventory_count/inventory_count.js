@@ -87,5 +87,56 @@ frappe.ui.form.on('Inventory Count', {
                 console.error("Erreur: Le champ 'code' ou son élément DOM (.input) n'a PAS ÉTÉ TROUVÉ après un court délai dans le DocType Prise Inventaire.");
             }
         }, 300);
+    },
+    refresh: function(frm) {
+        // Ajoutons un bouton d'action si le document n'est pas encore sauvegardé (pour éviter des erreurs)
+        // ou si vous voulez qu'il soit toujours là, retirez la condition frm.doc.__islocal
+        if (!frm.doc.__islocal) { // __islocal est vrai si le document n'est pas encore sauvegardé
+            frm.add_custom_button(__('Importer Données CSV'), function() {
+                // Afficher un message de chargement
+                frappe.show_alert({
+                    message: __('Importation des données CSV en cours...'),
+                    indicator: 'blue'
+                }, 3);
+
+                // Appeler la fonction Python côté serveur via frappe.call
+                frappe.call({
+                    // Chemin complet de votre fonction Python. Assurez-vous que c'est le bon chemin.
+                    // Exemple: 'nom_app.nom_module.nom_fichier_python.nom_fonction'
+                    method: 'inv_count.inventory_count.doctype.inventory_count.inventory_count.import_data_with_pandas',
+                    args: {
+                        // Envoyer le nom du document courant (name) à la fonction Python
+                        inventory_count_name: frm.doc.name
+                    },
+                    callback: function(r) {
+                        // Callback après l'exécution de la fonction Python
+                        if (r.message) {
+                            if (r.message.status === 'success') {
+                                frappe.msgprint({
+                                    message: __('Importation réussie ! Document: ') + r.message.doc_name,
+                                    title: __('Succès'),
+                                    indicator: 'green'
+                                });
+                                frm.reload_doc(); // Recharger le formulaire pour afficher les nouvelles lignes
+                            } else {
+                                frappe.msgprint({
+                                    message: __('Erreur lors de l\'importation : ') + r.message.message,
+                                    title: __('Erreur'),
+                                    indicator: 'red'
+                                });
+                            }
+                        }
+                    },
+                    error: function(err) {
+                        // Gérer les erreurs de communication avec le serveur
+                        frappe.msgprint({
+                            message: __('Une erreur de communication est survenue: ') + err.message,
+                            title: __('Erreur Serveur'),
+                            indicator: 'red'
+                        });
+                    }
+                });
+            }, __('Actions')); // Le deuxième argument est la catégorie du bouton
+        }
     }
 });

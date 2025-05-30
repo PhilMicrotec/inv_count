@@ -13,7 +13,8 @@
   "date",
   "section_break_slsq",
   "code",
-  "inv_physical_items"
+  "inv_physical_items",
+  "inv_virtual_items"
  ],
  "fields": [
   {
@@ -33,17 +34,20 @@
   {
    "fieldname": "location",
    "fieldtype": "Select",
-   "label": "Location"
+   "label": "Location",
+   "read_only_depends_on": "eval:!(doc.__islocal)"
   },
   {
    "fieldname": "warehouse",
    "fieldtype": "Select",
-   "label": "Warehouse"
+   "label": "Warehouse",
+   "read_only_depends_on": "eval:!(doc.__islocal)"
   },
   {
    "fieldname": "warehouse_bin",
    "fieldtype": "Select",
-   "label": "Warehouse Bin"
+   "label": "Warehouse Bin",
+   "read_only_depends_on": "eval:!(doc.__islocal)"
   },
   {
    "default": "Today",
@@ -51,9 +55,11 @@
    "fieldtype": "Date",
    "in_list_view": 1,
    "label": "Date",
+   "read_only_depends_on": "eval:!(doc.__islocal)",
    "reqd": 1
   },
   {
+   "depends_on": "eval:!(doc.__islocal)",
    "fieldname": "section_break_slsq",
    "fieldtype": "Section Break"
   },
@@ -67,13 +73,18 @@
    "fieldname": "code",
    "fieldtype": "Data",
    "label": "Code"
+  },
+  {
+   "fieldname": "inv_virtual_items",
+   "fieldtype": "Table",
+   "options": "Inv_virtual_items"
   }
  ],
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "is_submittable": 1,
  "links": [],
- "modified": "2025-05-29 14:05:53.202199",
+ "modified": "2025-05-30 11:49:05.784362",
  "modified_by": "Administrator",
  "module": "Inventory Count",
  "name": "Inventory Count",
