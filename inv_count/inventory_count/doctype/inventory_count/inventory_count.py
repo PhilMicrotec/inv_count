@@ -38,12 +38,10 @@ def import_data_with_pandas(inventory_count_name=None):
         return {"status": "error", "message": f"Fichier CSV non trouvé: {csv_file_path}"}
 
     try:
-        df = pd.read_csv(csv_file_path, encoding='latin', sep=',')
+        df = pd.read_csv(csv_file_path, encoding='iso-8859-1')
         
         df = df.fillna(0)
         
-        frappe.msgprint(f"Lu {len(df)} lignes à partir de '{os.path.basename(csv_file_path)}'.", title="CSV Lu", indicator='blue')
-
         # Obtenir ou créer le document parent Inventory Count
         inventory_count_doc = None
         if inventory_count_name and frappe.db.exists(parent_doctype, inventory_count_name):
@@ -69,6 +67,23 @@ def import_data_with_pandas(inventory_count_name=None):
                 child_item.iv_item_recid = row['IV_Item_RecID']
                 child_item.item_id = row['Item_ID']
                 child_item.shortdescription = row['ShortDescription']
+                child_item.category = row['Category']
+                child_item.vendor_recid = row['Vendor_RecID']
+                child_item.vendor_name = row['Vendor_Name']
+                child_item.warehouse_recid = row['Warehouse_RecID']
+                child_item.warehouse = row['Warehouse']
+                child_item.warehouse_bin_recid = row['Warehouse_Bin_RecID']
+                child_item.bin = row['Bin']
+                child_item.qoh = row['QOH']
+                child_item.lasttransactiondate = row['LastTransactionDate']
+                child_item.iv_audit_recid = row['Warehouse_Bin_RecID']
+                child_item.pickednotshipped = row['PickedNotShipped']
+                child_item.pickednotshippedcost = row['PickedNotShippedCost']
+                child_item.pickednotinvoiced = row['PickedNotInvoiced']
+                child_item.pickednotinvoicedcost = row['PickedNotInvoicedCost']
+                child_item.selectedcost = row['SelectedCost']
+                child_item.extendedcost = row['ExtendedCost']
+                child_item.snlist = row['SNList']
                 # Ajoutez d'autres mappings si votre CSV contient plus de colonnes nécessaires
                 
 

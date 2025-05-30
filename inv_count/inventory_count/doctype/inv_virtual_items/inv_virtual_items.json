@@ -9,7 +9,24 @@
   "location",
   "iv_item_recid",
   "item_id",
-  "shortdescription"
+  "shortdescription",
+  "category",
+  "vendor_recid",
+  "vendor_name",
+  "warehouse_recid",
+  "warehouse",
+  "warehouse_bin_recid",
+  "bin",
+  "qoh",
+  "lasttransactiondate",
+  "iv_audit_recid",
+  "pickednotshipped",
+  "pickednotshippedcost",
+  "pickednotinvoiced",
+  "pickednotinvoicedcost",
+  "selectedcost",
+  "extendedcost",
+  "snlist"
  ],
  "fields": [
   {
@@ -31,13 +48,98 @@
    "fieldname": "shortdescription",
    "fieldtype": "Data",
    "label": "ShortDescription"
+  },
+  {
+   "fieldname": "category",
+   "fieldtype": "Data",
+   "label": "Category"
+  },
+  {
+   "fieldname": "vendor_recid",
+   "fieldtype": "Data",
+   "label": "Vendor_RecID"
+  },
+  {
+   "fieldname": "vendor_name",
+   "fieldtype": "Data",
+   "label": "Vendor_Name"
+  },
+  {
+   "fieldname": "warehouse_recid",
+   "fieldtype": "Data",
+   "label": "Warehouse_RecID"
+  },
+  {
+   "fieldname": "warehouse",
+   "fieldtype": "Data",
+   "label": "Warehouse"
+  },
+  {
+   "fieldname": "warehouse_bin_recid",
+   "fieldtype": "Data",
+   "label": "Warehouse_Bin_RecID"
+  },
+  {
+   "fieldname": "bin",
+   "fieldtype": "Data",
+   "label": "Bin"
+  },
+  {
+   "fieldname": "qoh",
+   "fieldtype": "Data",
+   "label": "QOH"
+  },
+  {
+   "fieldname": "lasttransactiondate",
+   "fieldtype": "Data",
+   "label": "LastTransactionDate"
+  },
+  {
+   "fieldname": "iv_audit_recid",
+   "fieldtype": "Data",
+   "label": "IV_Audit_RecID"
+  },
+  {
+   "fieldname": "pickednotshipped",
+   "fieldtype": "Data",
+   "label": "PickedNotShipped"
+  },
+  {
+   "fieldname": "pickednotshippedcost",
+   "fieldtype": "Data",
+   "label": "PickedNotShippedCost"
+  },
+  {
+   "fieldname": "pickednotinvoiced",
+   "fieldtype": "Data",
+   "label": "PickedNotInvoiced"
+  },
+  {
+   "fieldname": "pickednotinvoicedcost",
+   "fieldtype": "Data",
+   "label": "PickedNotInvoicedCost"
+  },
+  {
+   "fieldname": "selectedcost",
+   "fieldtype": "Data",
+   "label": "SelectedCost"
+  },
+  {
+   "fieldname": "extendedcost",
+   "fieldtype": "Data",
+   "label": "ExtendedCost"
+  },
+  {
+   "fieldname": "snlist",
+   "fieldtype": "Data",
+   "label": "SNList"
   }
  ],
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "istable": 1,
  "links": [],
- "modified": "2025-05-30 10:26:19.394989",
+ "modified": "2025-05-30 12:38:21.589430",
  "modified_by": "Administrator",
  "module": "Inventory Count",
  "name": "Inv_virtual_items",
