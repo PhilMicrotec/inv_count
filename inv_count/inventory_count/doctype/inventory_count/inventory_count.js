@@ -7,7 +7,9 @@ frappe.ui.form.on('Inventory Count', {
                 frm.reload_doc(); // Reloads the current document data
             }
         });
-        const childTableFieldName = 'inv_physical_items'; // Votre Fieldname de table enfant
+
+        const physicalItemsTable = 'inv_physical_items';
+        const virtualItemsTable = 'inv_virtual_items'; 
 
         let currentScannedCode = ''; // Variable pour stocker le code en cours de scan
 
@@ -33,38 +35,46 @@ frappe.ui.form.on('Inventory Count', {
                         if (enteredCode) {
 
                             let foundExistingRow = false;
+                            let itemDescription = ''; // Variable to store the description
 
-                            if (frm.doc[childTableFieldName] && frm.doc[childTableFieldName].length > 0) {
-                                
-                                for (let row of frm.doc[childTableFieldName]) {
+                            // --- Find description in virtual items first ---
+                            if (frm.doc[virtualItemsTable] && frm.doc[virtualItemsTable].length > 0) {
+                                const virtualItem = frm.doc[virtualItemsTable].find(row => row.item_id === enteredCode);
+                                if (virtualItem) {
+                                    itemDescription = virtualItem.shortdescription || ''; // Get description if found
+                                    console.log(`Description found in virtual items for "${enteredCode}": "${itemDescription}"`);
+                                } else {
+                                    console.log(`Code "${enteredCode}" not found in virtual inventory.`);
+                                }
+                            }
+
+                            // --- Update or add to physical items ---
+                            if (frm.doc[physicalItemsTable] && frm.doc[physicalItemsTable].length > 0) {
+                                for (let row of frm.doc[physicalItemsTable]) {
                                     if (row.code === enteredCode) {
                                         const newQty = (row.qty || 0) + 1;
                                         foundExistingRow = true;
                                         console.log(`Quantité augmentée pour le code: "${enteredCode}" à ${newQty}`);
 
-                                        // --- LIGNE CLÉ À AJOUTER OU MODIFIER ---
-                                        // Met à jour la valeur de la quantité dans le modèle Frappe pour cette ligne enfant
-                                        // Cela marque la ligne comme modifiée et donc le document parent comme dirty.
                                         frappe.model.set_value(row.doctype, row.name, 'qty', newQty);
-
+                                        // Also update description if it's different or always sync
+                                        if (row.description !== itemDescription) {
+                                            frappe.model.set_value(row.doctype, row.name, 'description', itemDescription);
+                                        }
                                         break;
                                     }
                                 }
-                            } else {
-                                console.log(`Table enfant "${childTableFieldName}" est vide ou non initialisée. Ajout d'une nouvelle ligne.`);
                             }
 
                             if (!foundExistingRow) {
                                 console.log(`Code non trouvé. Ajout d'une nouvelle ligne pour: "${enteredCode}"`);
-                                const newRow = frm.add_child(childTableFieldName);
+                                const newRow = frm.add_child(physicalItemsTable);
                                 newRow.code = enteredCode;
                                 newRow.qty = 1;
-                                // L'opération frm.add_child() marque naturellement le document comme dirty,
-                                // donc pas besoin de frappe.model.set_value ici.
+                                newRow.description = itemDescription;
                             }
 
-                            frm.refresh_field(childTableFieldName); // Rafraîchit l'affichage de la table enfant
-
+                            frm.refresh_field(physicalItemsTable); // Rafraîchit l'affichage de la table enfant
                             frm.set_value('code', ''); // Vide le champ 'code' principal
                             frm.refresh_field('code'); // Rafraîchit l'affichage du champ 'code'
 
@@ -78,7 +88,6 @@ frappe.ui.form.on('Inventory Count', {
                                 message: __("Veuillez entrer un code avant d'appuyer sur Entrée."),
                                 indicator: 'orange'
                             });
-                            console.log("Champ 'code' vide après Entrée.");
                         }
                     }
                 };
@@ -157,5 +166,23 @@ frappe.ui.form.on('Inventory Count', {
                 }
             });
         });
+    },
+
+});
+
+// Frappe UI event for child table field changes.
+// This is outside the main frappe.ui.form.on('Parent DocType') block
+// because it's an event specifically for the child DocType.
+frappe.ui.form.on('Inv_physical_items', {
+    qty: function(frm, cdt, cdn) {
+        // This function will be called when the 'qty' field of any row
+        // in 'Inv_physical_items' child table is changed.
+        console.log(`Quantity of row ${cdn} in Inv_physical_items changed. Autosaving...`);
+        frm.save();
+    },
+    code: function(frm, cdt, cdn) {
+        // If you also want to autosave when 'code' is changed in the child table directly
+        console.log(`Code of row ${cdn} in Inv_physical_items changed. Autosaving...`);
+        frm.save();
     }
 });

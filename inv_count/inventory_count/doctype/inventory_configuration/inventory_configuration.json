@@ -5,7 +5,8 @@
  "doctype": "DocType",
  "engine": "InnoDB",
  "field_order": [
-  "data_vzsv"
+  "data_vzsv",
+  "debug_mode"
  ],
  "fields": [
   {
@@ -16,13 +17,19 @@
    "label": "Import inventory from",
    "options": "CSV File\nSQL Database",
    "reqd": 1
+  },
+  {
+   "default": "0",
+   "fieldname": "debug_mode",
+   "fieldtype": "Check",
+   "label": "Debug Mode"
   }
  ],
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "issingle": 1,
  "links": [],
- "modified": "2025-05-30 13:22:32.025820",
+ "modified": "2025-06-03 11:59:48.583437",
  "modified_by": "Administrator",
  "module": "Inventory Count",
  "name": "Inventory Configuration",

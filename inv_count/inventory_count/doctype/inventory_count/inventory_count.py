@@ -134,6 +134,10 @@ def compare_child_tables(doc_name):
             row.get("item_id"): int(row.get("qoh") or 0)
             for row in virtual_items
         }
+        description_item_map = {
+            row.get("item_id"): row.get("shortdescription")
+            for row in virtual_items
+        }
 
         # Clear existing rows in inv_difference before adding new ones
         doc.set("inv_difference", [])
@@ -143,11 +147,12 @@ def compare_child_tables(doc_name):
             if item_code is None:
                 continue
 
+            description = description_item_map[item_code]
             if item_code not in virtual_items_map:
                 # Item found in physical but not in virtual
                 doc.append("inv_difference", {
                     "item_code": item_code,
-                    # Ensure fields in inv_difference are set to integers
+                    "description": description,
                     "physical_qty": physical_qty_int,
                     "virtual_qty": 0,
                     "difference_qty": physical_qty_int, # physical - 0
@@ -162,6 +167,7 @@ def compare_child_tables(doc_name):
                     difference = physical_qty_int - virtual_qty_int
                     doc.append("inv_difference", {
                         "item_code": item_code,
+                        "description": description,
                         "physical_qty": physical_qty_int,
                         "virtual_qty": virtual_qty_int,
                         "difference_qty": difference,
@@ -173,11 +179,13 @@ def compare_child_tables(doc_name):
             if item_code is None:
                 continue
 
+            description = description_item_map[item_code]
             if item_code not in physical_items_map:
                 # Item found in virtual but not in physical
                 difference = 0 - virtual_qty_int # 0 - virtual
                 doc.append("inv_difference", {
                     "item_code": item_code,
+                    "description": description,
                     "physical_qty": 0,
                     "virtual_qty": virtual_qty_int,
                     "difference_qty": difference,
