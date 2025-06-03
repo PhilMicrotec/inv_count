@@ -12,18 +12,18 @@ EXTRA_TEST_RECORD_DEPENDENCIES = []  # eg. ["User"]
 IGNORE_TEST_RECORD_DEPENDENCIES = []  # eg. ["User"]
 
 
-class UnitTestInventoryConfiguration(UnitTestCase):
+class UnitTestInventoryCountSettings(UnitTestCase):
 	"""
-	Unit tests for InventoryConfiguration.
+	Unit tests for InventoryCountSettings.
 	Use this class for testing individual functions and methods.
 	"""
 
 	pass
 
 
-class IntegrationTestInventoryConfiguration(IntegrationTestCase):
+class IntegrationTestInventoryCountSettings(IntegrationTestCase):
 	"""
-	Integration tests for InventoryConfiguration.
+	Integration tests for InventoryCountSettings.
 	Use this class for testing interactions between multiple components.
 	"""
 

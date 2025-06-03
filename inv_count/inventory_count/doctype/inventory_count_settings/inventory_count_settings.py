@@ -5,5 +5,5 @@
 from frappe.model.document import Document
 
 
-class InventoryConfiguration(Document):
+class InventoryCountSettings(Document):
 	pass

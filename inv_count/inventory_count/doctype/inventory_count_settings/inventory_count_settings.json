@@ -1,23 +1,13 @@
 {
  "actions": [],
  "allow_rename": 1,
- "creation": "2025-05-30 13:19:32.200136",
+ "creation": "2025-06-03 12:09:03.758405",
  "doctype": "DocType",
  "engine": "InnoDB",
  "field_order": [
-  "data_vzsv",
   "debug_mode"
  ],
  "fields": [
-  {
-   "default": "CSV File",
-   "fieldname": "data_vzsv",
-   "fieldtype": "Select",
-   "in_list_view": 1,
-   "label": "Import inventory from",
-   "options": "CSV File\nSQL Database",
-   "reqd": 1
-  },
   {
    "default": "0",
    "fieldname": "debug_mode",
@@ -29,10 +19,10 @@
  "index_web_pages_for_search": 1,
  "issingle": 1,
  "links": [],
- "modified": "2025-06-03 11:59:48.583437",
+ "modified": "2025-06-03 12:09:36.412559",
  "modified_by": "Administrator",
  "module": "Inventory Count",
- "name": "Inventory Configuration",
+ "name": "Inventory Count Settings",
  "owner": "Administrator",
  "permissions": [
   {

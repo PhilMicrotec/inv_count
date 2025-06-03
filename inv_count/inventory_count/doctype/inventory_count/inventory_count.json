@@ -78,14 +78,12 @@
   {
    "fieldname": "inv_virtual_items",
    "fieldtype": "Table",
-   "hidden": 1,
    "label": "Virtual Inventory",
    "options": "Inv_virtual_items"
   },
   {
    "fieldname": "inv_difference",
    "fieldtype": "Table",
-   "hidden": 1,
    "label": "Inventory Diff",
    "options": "Inv_difference"
   }
@@ -94,7 +92,7 @@
  "index_web_pages_for_search": 1,
  "is_submittable": 1,
  "links": [],
- "modified": "2025-06-03 11:55:59.169536",
+ "modified": "2025-06-03 14:09:04.326088",
  "modified_by": "Administrator",
  "module": "Inventory Count",
  "name": "Inventory Count",
