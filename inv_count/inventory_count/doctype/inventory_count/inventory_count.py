@@ -200,8 +200,3 @@ def compare_child_tables(doc_name):
     except Exception as e:
         frappe.log_error(frappe.get_traceback(), "Error in compare_child_tables")
         return f"Une erreur est survenue lors de la comparaison des tables : {e}"
-
-@frappe.whitelist()
-def save_page(doc_name):
-    doc = frappe.get_doc("Inventory Count", doc_name)
-    doc.save() # Use ignore_permissions carefully!

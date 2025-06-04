@@ -167,7 +167,7 @@ frappe.ui.form.on('Inventory Count', {
                             // Réinitialiser la variable temporaire pour le prochain scan
                             currentScannedCode = '';
 
-                            // frm.save();
+                            if (!foundExistingRow) frm.save(); // Enregistre le document après modification
 
                         } else {
                             frappe.show_alert({
@@ -201,5 +201,5 @@ frappe.ui.form.on('Inv_physical_items', {
         // If you also want to autosave when 'code' is changed in the child table directly
         console.log(`Code of row ${cdn} in Inv_physical_items changed. Autosaving...`);
         frm.save();
-    }
+    },
 });
