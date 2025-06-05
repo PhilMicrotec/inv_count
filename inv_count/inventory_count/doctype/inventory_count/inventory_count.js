@@ -128,10 +128,8 @@ frappe.ui.form.on('Inventory Count', {
                                 const virtualItem = frm.doc[virtualItemsTable].find(row => row.item_id === enteredCode);
                                 if (virtualItem) {
                                     itemDescription = virtualItem.shortdescription || ''; // Get description if found
-                                    console.log(`Description found in virtual items for "${enteredCode}": "${itemDescription}"`);
-                                } else {
-                                    console.log(`Code "${enteredCode}" not found in virtual inventory.`);
-                                }
+                                    expectedQty = virtualItem.qoh || 0; // **Get QOH from virtual items**
+                                } 
                             }
 
                             // --- Update or add to physical items ---
@@ -140,12 +138,15 @@ frappe.ui.form.on('Inventory Count', {
                                     if (row.code === enteredCode) {
                                         const newQty = (row.qty || 0) + 1;
                                         foundExistingRow = true;
-                                        console.log(`Quantité augmentée pour le code: "${enteredCode}" à ${newQty}`);
 
                                         frappe.model.set_value(row.doctype, row.name, 'qty', newQty);
                                         // Also update description if it's different or always sync
                                         if (row.description !== itemDescription) {
                                             frappe.model.set_value(row.doctype, row.name, 'description', itemDescription);
+                                        }
+                                        // **Update expected_qty for existing row if it's different**
+                                        if (row.expected_qty !== expectedQty) {
+                                            frappe.model.set_value(row.doctype, row.name, 'expected_qty', expectedQty);
                                         }
                                         break;
                                     }
@@ -153,11 +154,11 @@ frappe.ui.form.on('Inventory Count', {
                             }
 
                             if (!foundExistingRow) {
-                                console.log(`Code non trouvé. Ajout d'une nouvelle ligne pour: "${enteredCode}"`);
                                 const newRow = frm.add_child(physicalItemsTable);
                                 newRow.code = enteredCode;
                                 newRow.qty = 1;
                                 newRow.description = itemDescription;
+                                newRow.expected_qty = expectedQty; 
                             }
 
                             frm.refresh_field(physicalItemsTable); // Rafraîchit l'affichage de la table enfant
@@ -182,6 +183,25 @@ frappe.ui.form.on('Inventory Count', {
                 console.error("Erreur: Le champ 'code' ou son élément DOM (.input) n'a PAS ÉTÉ TROUVÉ après un court délai dans le DocType Prise Inventaire.");
             }
         }, 300);
+    }, 
+    before_submit: function(frm) {        
+        // Get the child table data
+        const invDifferenceTable = frm.doc.inv_difference; // 'inv_difference' is the fieldname of your child table
+
+        // --- Check if all rows have 'confirmed' checked ---
+        let allConfirmed = true;
+        for (let i = 0; i < invDifferenceTable.length; i++) {
+            const row = invDifferenceTable[i];
+            if (!row.confirmed) { // Assuming 'confirmed' is the fieldname of your checkbox
+                allConfirmed = false;
+                break; // Exit the loop as soon as an unchecked row is found
+            }
+        }
+
+        if (!allConfirmed) {
+            frappe.throw(__("Please confirm all inventory differences by checking the 'Confirmed' checkbox in each row."));
+            return false; // Prevent submission
+        }
     }
 
 });
@@ -201,5 +221,5 @@ frappe.ui.form.on('Inv_physical_items', {
         // If you also want to autosave when 'code' is changed in the child table directly
         console.log(`Code of row ${cdn} in Inv_physical_items changed. Autosaving...`);
         frm.save();
-    },
+    }
 });

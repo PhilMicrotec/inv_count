@@ -10,7 +10,8 @@
   "description",
   "physical_qty",
   "virtual_qty",
-  "difference_reason"
+  "difference_reason",
+  "confirmed"
  ],
  "fields": [
   {
@@ -37,13 +38,19 @@
    "fieldname": "description",
    "fieldtype": "Data",
    "label": "Description"
+  },
+  {
+   "default": "0",
+   "fieldname": "confirmed",
+   "fieldtype": "Check",
+   "label": "Confirmed"
   }
  ],
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "istable": 1,
  "links": [],
- "modified": "2025-06-03 10:15:58.448760",
+ "modified": "2025-06-05 12:22:39.729535",
  "modified_by": "Administrator",
  "module": "Inventory Count",
  "name": "Inv_difference",
