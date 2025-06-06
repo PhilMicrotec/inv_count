@@ -106,9 +106,10 @@ def import_data_with_pandas(inventory_count_name=None):
 @frappe.whitelist()
 def compare_child_tables(doc_name):
     """
-    Compare 'inv_physical_items' and 'inv_virtual_items' child tables
-    of an 'Inventory Count' document and populate the 'inv_difference' child table
-    with any discrepancies, converting quantities to integers for comparison.
+    Compares 'inv_physical_items' and 'inv_virtual_items' child tables
+    of an 'Inventory Count' document and populates/updates the 'inv_difference' child table
+    with any discrepancies. It will update existing rows if the item_code matches,
+    or create new ones if not found.
 
     Args:
         doc_name (str): The name of the 'Inventory Count' document.
@@ -117,15 +118,11 @@ def compare_child_tables(doc_name):
         str: A message indicating the success or failure of the operation.
     """
     try:
-        # Get the parent Inventory Count document
         doc = frappe.get_doc("Inventory Count", doc_name)
 
-        # Get data from the two source child tables
         physical_items = doc.get("inv_physical_items")
         virtual_items = doc.get("inv_virtual_items")
 
-        # Prepare dictionaries for easier lookup, converting quantities to int
-        # Use int() with a default of 0 if the value is None or cannot be converted
         physical_items_map = {
             row.get("code"): int(row.get("qty") or 0)
             for row in physical_items
@@ -134,65 +131,111 @@ def compare_child_tables(doc_name):
             row.get("item_id"): int(row.get("qoh") or 0)
             for row in virtual_items
         }
-        description_item_map = {
+        description_virtual_item_map = {
             row.get("item_id"): row.get("shortdescription")
             for row in virtual_items
         }
+        description_physical_item_map = {
+            row.get("code"): row.get("description")
+            for row in physical_items
+        }
 
-        # Clear existing rows in inv_difference before adding new ones
-        doc.set("inv_difference", [])
+        # Keep track of item_codes that were updated/created in inv_difference
+        processed_difference_items = set()
 
-        # --- Compare Physical Items against Virtual Items ---
+        # --- Upsert logic for discrepancies based on Physical Items ---
         for item_code, physical_qty_int in physical_items_map.items():
             if item_code is None:
                 continue
 
-            description = description_item_map[item_code]
-            if item_code not in virtual_items_map:
-                # Item found in physical but not in virtual
-                doc.append("inv_difference", {
-                    "item_code": item_code,
-                    "description": description,
-                    "physical_qty": physical_qty_int,
-                    "virtual_qty": 0,
-                    "difference_qty": physical_qty_int, # physical - 0
-                    "difference_reason": "Article non trouvé dans l'inventaire virtuel"
-                })
-            else:
-                virtual_qty_int = virtual_items_map[item_code]
-                
-                # Direct integer comparison
-                if virtual_qty_int != physical_qty_int:
-                    # Item found in both, but quantities mismatch
-                    difference = physical_qty_int - virtual_qty_int
-                    doc.append("inv_difference", {
-                        "item_code": item_code,
-                        "description": description,
-                        "physical_qty": physical_qty_int,
-                        "virtual_qty": virtual_qty_int,
-                        "difference_qty": difference,
-                        "difference_reason": "Quantité différente"
-                    })
+            # Default description if not found in virtual items (e.g., new item)
+            description_physical = description_physical_item_map.get(item_code, "")
+            virtual_qty_int = virtual_items_map.get(item_code, 0) # Get virtual qty, default to 0 if not found
 
-        # --- Compare Virtual Items against Physical Items (to find items only in virtual) ---
+            difference = physical_qty_int - virtual_qty_int
+            
+            # Only add to difference table if there's an actual difference
+            if difference != 0:
+                # Try to find an existing row in inv_difference for this item_code
+                existing_row = None
+                for row in doc.get("inv_difference"):
+                    if row.item_code == item_code:
+                        existing_row = row
+                        break
+
+                if existing_row:
+                    # Update existing row
+                    existing_row.description = description_physical
+                    existing_row.physical_qty = physical_qty_int
+                    existing_row.virtual_qty = virtual_qty_int
+                    existing_row.difference_qty = difference
+                    existing_row.difference_reason = "Quantité différente" if item_code in virtual_items_map else "Article non trouvé dans l'inventaire virtuel"
+                    # Preserve 'confirmed' status if you have it
+                    # existing_row.confirmed = existing_row.confirmed or 0
+                else:
+                    # Create new row
+                    new_diff_item = doc.append("inv_difference", {})
+                    new_diff_item.item_code = item_code
+                    new_diff_item.description = description_physical
+                    new_diff_item.physical_qty = physical_qty_int
+                    new_diff_item.virtual_qty = virtual_qty_int
+                    new_diff_item.difference_qty = difference
+                    new_diff_item.difference_reason = "Quantité différente" if item_code in virtual_items_map else "Article non trouvé dans l'inventaire virtuel"
+                    new_diff_item.confirmed = 0 # Default to unchecked for new differences
+
+                processed_difference_items.add(item_code)
+
+        # --- Upsert logic for items only in Virtual Items (not in Physical) ---
         for item_code, virtual_qty_int in virtual_items_map.items():
-            if item_code is None:
+            if item_code is None or item_code in physical_items_map:
+                # Skip if already processed or exists in physical items
                 continue
 
-            description = description_item_map[item_code]
-            if item_code not in physical_items_map:
-                # Item found in virtual but not in physical
-                difference = 0 - virtual_qty_int # 0 - virtual
-                doc.append("inv_difference", {
-                    "item_code": item_code,
-                    "description": description,
-                    "physical_qty": 0,
-                    "virtual_qty": virtual_qty_int,
-                    "difference_qty": difference,
-                    "difference_reason": "Article non trouvé dans l'inventaire physique"
-                })
+            description_virtual = description_virtual_item_map.get(item_code, "")
+            difference = 0 - virtual_qty_int # Item found in virtual but not in physical
 
-        # Save the parent document to persist changes in inv_difference
+            # Try to find an existing row in inv_difference for this item_code
+            existing_row = None
+            for row in doc.get("inv_difference"):
+                if row.item_code == item_code:
+                    existing_row = row
+                    break
+
+            if existing_row:
+                # Update existing row
+                existing_row.description = description_virtual
+                existing_row.physical_qty = 0
+                existing_row.virtual_qty = virtual_qty_int
+                existing_row.difference_qty = difference
+                existing_row.difference_reason = "Article non trouvé dans l'inventaire physique"
+            else:
+                # Create new row
+                new_diff_item = doc.append("inv_difference", {})
+                new_diff_item.item_code = item_code
+                new_diff_item.description = description_virtual
+                new_diff_item.physical_qty = 0
+                new_diff_item.virtual_qty = virtual_qty_int
+                new_diff_item.difference_qty = difference
+                new_diff_item.difference_reason = "Article non trouvé dans l'inventaire physique"
+                new_diff_item.confirmed = 0 # Default to unchecked for new differences
+
+            processed_difference_items.add(item_code)
+
+
+        # --- Remove rows from inv_difference that are no longer discrepancies ---
+        # Iterate backwards to safely remove items while iterating
+        items_to_remove = []
+        for i in range(len(doc.get("inv_difference")) - 1, -1, -1):
+            row = doc.get("inv_difference")[i]
+            if row.item_code not in processed_difference_items:
+                # If an item_code in inv_difference was not processed, it means
+                # its difference has been resolved (physical_qty == virtual_qty)
+                # or it no longer exists as a discrepancy.
+                items_to_remove.append(row)
+        
+        for row_to_remove in items_to_remove:
+            doc.remove(row_to_remove)
+
         doc.save()
         frappe.db.commit()
 

@@ -17,32 +17,42 @@
   {
    "fieldname": "item_code",
    "fieldtype": "Data",
-   "label": "Code"
+   "in_list_view": 1,
+   "label": "Code",
+   "read_only": 1
   },
   {
    "fieldname": "physical_qty",
    "fieldtype": "Data",
-   "label": "physical_qty"
+   "in_list_view": 1,
+   "label": "physical_qty",
+   "read_only": 1
   },
   {
    "fieldname": "virtual_qty",
    "fieldtype": "Data",
-   "label": "virtual_qty"
+   "in_list_view": 1,
+   "label": "virtual_qty",
+   "read_only": 1
   },
   {
    "fieldname": "difference_reason",
    "fieldtype": "Small Text",
-   "label": "difference_reason"
+   "label": "difference_reason",
+   "read_only": 1
   },
   {
    "fieldname": "description",
    "fieldtype": "Data",
-   "label": "Description"
+   "in_list_view": 1,
+   "label": "Description",
+   "read_only": 1
   },
   {
    "default": "0",
    "fieldname": "confirmed",
    "fieldtype": "Check",
+   "in_list_view": 1,
    "label": "Confirmed"
   }
  ],
@@ -50,7 +60,7 @@
  "index_web_pages_for_search": 1,
  "istable": 1,
  "links": [],
- "modified": "2025-06-05 12:22:39.729535",
+ "modified": "2025-06-05 14:29:59.305336",
  "modified_by": "Administrator",
  "module": "Inventory Count",
  "name": "Inv_difference",

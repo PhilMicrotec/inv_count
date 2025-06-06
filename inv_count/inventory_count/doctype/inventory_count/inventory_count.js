@@ -1,15 +1,27 @@
 frappe.ui.form.on('Inventory Count', {
     refresh: function(frm) {
         frappe.db.get_single_value('Inventory Count Settings', 'debug_mode')
-            .then(value => {
-                if (value !== undefined && value !== null) {
-                    frm.toggle_display('inv_virtual_items', value);
-                    frm.toggle_display('inv_difference', value);
-                } 
+            .then(debug_mode_active => {
+                // debug_mode_active will be the value of 'debug_mode' from 'Inventory Count Settings'
+                // It's usually 0 or 1 for boolean fields in Frappe.
+
+                if (debug_mode_active) {
+                    // If debug mode is active, then proceed to show all hidden fields
+                    frm.fields.forEach(function(field) {
+                        if (field.df.hidden === 1) {
+                            frm.set_df_property(field.df.fieldname, 'hidden', 0);
+                        }
+                    });
+                } else {
+                    frm.fields.forEach(function(field) {
+                        if (field.df.hidden === 0 && !field.df.always_on_display) { // always_on_display is not a standard df property for 'hidden' state
+                        }
+                    });
+                }
             })
             .catch(error => {
-                console.error(`Error fetching value from single doctype:`, error);
-                frappe.msgprint(`Error: Could not retrieve company email.`);
+                console.error("Error fetching debug_mode setting:", error);
+                // Handle error if the Single DocType or field doesn't exist
             });
 
         // Ajoutons un bouton d'action si le document n'est pas encore sauvegardé (pour éviter des erreurs)
@@ -61,29 +73,11 @@ frappe.ui.form.on('Inventory Count', {
                 });
             }); // Le deuxième argument est la catégorie du bouton
         }
-
-        frm.add_custom_button('Compare Tables (Server Side)', function() {
-            frappe.call({
-                method: "inv_count.inventory_count.doctype.inventory_count.inventory_count.compare_child_tables",
-                args: {
-                    doc_name: frm.doc.name
-                },
-                callback: function(r) {
-                    if (r.message) {
-                        frappe.msgprint(r.message);
-                        // Recharger la childtable inv_difference pour afficher les nouvelles données
-                        frm.refresh_field('inv_difference');
-                    }
-                },
-                error: function(err) {
-                    frappe.msgprint(__("Erreur lors de la comparaison : ") + err.message);
-                }
-            });
-        });
         frm.add_custom_button(__('Settings'), function() {
-            // Open a new form for the 'Task' doctype
             frappe.set_route('Form', 'Inventory Count Settings', null, { doctype: 'Inventory Count' });
         }); 
+
+        applyPhysicalItemsColoring(frm);
     },
     onload: function(frm) {
 
@@ -122,6 +116,7 @@ frappe.ui.form.on('Inventory Count', {
 
                             let foundExistingRow = false;
                             let itemDescription = ''; // Variable to store the description
+                            let expectedQty = 0; // Variable to store the expected quantity
 
                             // --- Find description in virtual items first ---
                             if (frm.doc[virtualItemsTable] && frm.doc[virtualItemsTable].length > 0) {
@@ -162,6 +157,7 @@ frappe.ui.form.on('Inventory Count', {
                             }
 
                             frm.refresh_field(physicalItemsTable); // Rafraîchit l'affichage de la table enfant
+                            applyPhysicalItemsColoring(frm);
                             frm.set_value('code', ''); // Vide le champ 'code' principal
                             frm.refresh_field('code'); // Rafraîchit l'affichage du champ 'code'
 
@@ -184,7 +180,23 @@ frappe.ui.form.on('Inventory Count', {
             }
         }, 300);
     }, 
-    before_submit: function(frm) {        
+    before_submit: function(frm) {     
+            frappe.call({
+                method: "inv_count.inventory_count.doctype.inventory_count.inventory_count.compare_child_tables",
+                args: {
+                    doc_name: frm.doc.name
+                },
+                callback: function(r) {
+                    if (r.message) {
+                        frappe.msgprint(r.message);
+                        // Recharger la childtable inv_difference pour afficher les nouvelles données
+                        frm.refresh_field('inv_difference');
+                    }
+                },
+                error: function(err) {
+                    frappe.msgprint(__("Erreur lors de la comparaison : ") + err.message);
+                }
+            });
         // Get the child table data
         const invDifferenceTable = frm.doc.inv_difference; // 'inv_difference' is the fieldname of your child table
 
@@ -200,9 +212,10 @@ frappe.ui.form.on('Inventory Count', {
 
         if (!allConfirmed) {
             frappe.throw(__("Please confirm all inventory differences by checking the 'Confirmed' checkbox in each row."));
+            frm.toggle_display('inv_difference', 1);
             return false; // Prevent submission
         }
-    }
+    }    
 
 });
 
@@ -213,13 +226,28 @@ frappe.ui.form.on('Inv_physical_items', {
     qty: function(frm, cdt, cdn) {
         // This function will be called when the 'qty' field of any row
         // in 'Inv_physical_items' child table is changed.
-        console.log(`Quantity of row ${cdn} in Inv_physical_items changed. Autosaving...`);
         frm.save();
     
     },
     code: function(frm, cdt, cdn) {
         // If you also want to autosave when 'code' is changed in the child table directly
-        console.log(`Code of row ${cdn} in Inv_physical_items changed. Autosaving...`);
         frm.save();
     }
 });
+
+
+// Helper function to apply coloring logic
+function applyPhysicalItemsColoring(frm) {
+    cur_frm.fields_dict["inv_physical_items"].$wrapper.find('.grid-body .rows').find(".grid-row").each(function(i, item) {
+        let d = locals[cur_frm.fields_dict["inv_physical_items"].grid.doctype][$(item).attr('data-name')];
+        if (d["qty"] == d["expected_qty"]) { // Added null check for 'd'
+            $(item).find('.grid-static-col').css({'background-color': '#90EE90'});
+        } else if (d["expected_qty"]==0){
+            // Important: Reset color if qty is no longer 1
+            $(item).find('.grid-static-col').css({'background-color': '#FFFFE0'});
+        } else {
+            // Important: Reset color if qty is no longer 1
+            $(item).find('.grid-static-col').css({'background-color': '#FFCCCB'});
+        }
+    });
+}
