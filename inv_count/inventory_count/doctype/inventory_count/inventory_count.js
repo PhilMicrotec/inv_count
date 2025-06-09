@@ -61,7 +61,7 @@ frappe.ui.form.on('Inventory Count', {
 
         if (!frm.custom_buttons['Settings']) {
             frm.add_custom_button(__('Settings'), function() {
-                frappe.set_route('Form', 'Inventory Count Settings'); // No need for null and doctype: 'Inventory Count' if it's a Single
+                frappe.set_route('Form', 'Inventory Count Settings', {parent_name:cur_frm.doc.name}); // No need for null and doctype: 'Inventory Count' if it's a Single
             });
         }
 
@@ -292,9 +292,9 @@ frappe.ui.form.on('Inventory Count', {
         }
 
         if (!allConfirmed) {
+            cur_frm.set_df_property('inv_difference', 'hidden', 0);
             frappe.throw(__("Veuillez confirmer toutes les différences d'inventaire en cochant la case 'Confirmé' dans chaque ligne."));
             // Ensure the inv_difference section is visible so the user can see the checkboxes
-            frm.toggle_display('inv_difference', true); // Toggle to true (visible)
             return false; // Prevent submission
         }
     }

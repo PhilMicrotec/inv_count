@@ -86,7 +86,8 @@
   {
    "fieldname": "inv_difference",
    "fieldtype": "Table",
-   "label": "Inventory Diff",
+   "hidden": 1,
+   "label": "Inventory difference to Apply",
    "options": "Inv_difference"
   }
  ],
@@ -94,7 +95,7 @@
  "index_web_pages_for_search": 1,
  "is_submittable": 1,
  "links": [],
- "modified": "2025-06-06 10:50:01.477209",
+ "modified": "2025-06-06 14:35:29.123610",
  "modified_by": "Administrator",
  "module": "Inventory Count",
  "name": "Inventory Count",
