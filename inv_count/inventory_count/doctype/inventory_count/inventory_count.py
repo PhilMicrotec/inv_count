@@ -11,95 +11,147 @@ class InventoryCount(Document):
 import frappe
 import pandas as pd
 import os
+import pymysql # Import pymysql for SQL database connection
 
 @frappe.whitelist()
-def import_data_with_pandas(inventory_count_name=None):
+def import_data_with_pandas(inventory_count_name):
     """
-    Importe les données d'un fichier CSV (test.csv) situé dans le sous-dossier 'inv_count'
-    de l'application dans la childtable 'inv_virtual_items' du DocType 'Inventory Count'.
-
-    Cette fonction est conçue pour être exécutée côté serveur (par ex. via bench execute).
+    Imports data into the 'inv_virtual_items' childtable of a specific 'Inventory Count' DocType
+    based on the import source type (CSV or SQL Database) configured in the 'Inventory Count Settings' DocType.
 
     Args:
-        inventory_count_name (str, optional): Le nom/ID de l'Inventory Count existant.
-                                            Si None, un nouvel Inventory Count sera créé.
-                                            Par défaut à None.
+        inventory_count_name (str): The name/ID of the Inventory Count document to update.
     """
     parent_doctype = "Inventory Count"
+    settings_doctype = "Inventory Count Settings" # New: Reference the settings DocType
     child_table_field_name = "inv_virtual_items"
     
-    current_script_dir = frappe.get_app_path('inv_count')
-    csv_file_path = os.path.join(current_script_dir, 'test.csv')
+    # 1. Get the Inventory Count document (the one being worked on)
+    if not inventory_count_name or not frappe.db.exists(parent_doctype, inventory_count_name):
+        frappe.throw(f"Document '{parent_doctype}' with name '{inventory_count_name}' not found.", title="Document Missing")
+        return {"status": "error", "message": f"Document '{parent_doctype}' not found."}
 
-    if not os.path.exists(csv_file_path):
-        frappe.log_error(f"Fichier CSV non trouvé à l'emplacement spécifié: {csv_file_path}", "Erreur d'importation Inventory Count")
-        print(f"Erreur: Le fichier CSV n'a pas été trouvé à l'emplacement: {csv_file_path}")
-        frappe.msgprint(f"Erreur: Le fichier CSV 'test.csv' est introuvable dans le dossier 'inv_count'.", title="Fichier introuvable", indicator='red')
-        return {"status": "error", "message": f"Fichier CSV non trouvé: {csv_file_path}"}
+    inventory_count_doc = frappe.get_doc(parent_doctype, inventory_count_name)
+    frappe.msgprint(f"Importing virtual inventory for '{inventory_count_doc.name}'...", title="Import Status", indicator='blue')
+
+    # 2. Get the Inventory Count Settings document
+    try:
+        settings_doc = frappe.get_doc(settings_doctype)
+    except Exception:
+        frappe.throw(f"'{settings_doctype}' document not found. Please configure your import settings first.", title="Settings Missing")
 
     try:
-        df = pd.read_csv(csv_file_path, encoding='iso-8859-1')
+        df = pd.DataFrame() # Initialize an empty DataFrame
         
+        # Determine import source type from settings
+        import_source_type = settings_doc.import_source_type
+
+        if import_source_type == "CSV":
+            csv_file_path_relative = settings_doc.csv_file_path
+            if not csv_file_path_relative:
+                frappe.throw("CSV File Path is not specified in 'Inventory Count Settings'.", title="CSV Path Missing")
+
+            # Resolve full path: assuming relative path is from app's root folder
+            current_app_path = frappe.get_app_path('inv_count') # Assuming 'inv_count' is your app name
+            csv_full_path = os.path.join(current_app_path, csv_file_path_relative)
+
+            if not os.path.exists(csv_full_path):
+                frappe.log_error(f"CSV file not found: {csv_full_path}", "Inventory Count Import Error")
+                frappe.throw(f"Error: CSV file '{csv_file_path_relative}' not found at '{csv_full_path}'. Please check 'Inventory Count Settings'.", title="File Not Found")
+            
+            df = pd.read_csv(csv_full_path, encoding='iso-8859-1')
+            frappe.msgprint(f"Successfully loaded data from CSV: {csv_full_path}", title="CSV Load Success", indicator='green')
+
+        elif import_source_type == "SQL Database":
+            # Retrieve SQL connection details from the Settings DocType
+            sql_host = settings_doc.sql_host
+            sql_port = settings_doc.sql_port
+            sql_database = settings_doc.sql_database
+            sql_username = settings_doc.sql_username
+            sql_password = settings_doc.sql_password
+            sql_query = settings_doc.sql_query
+
+            # These are marked as required in the DocType, but a quick check here is good too
+            if not all([sql_host, sql_database, sql_username, sql_query]):
+                frappe.throw("Missing SQL connection details (Host, Database, Username, or Query) in 'Inventory Count Settings'.", title="SQL Details Missing")
+
+            try:
+                conn = pymysql.connect(
+                    host=sql_host,
+                    port=int(sql_port) if sql_port else 3306,
+                    user=sql_username,
+                    password=sql_password,
+                    database=sql_database
+                )
+                frappe.msgprint(f"Successfully connected to SQL database: {sql_database} on {sql_host}:{sql_port}", title="SQL Connect Success", indicator='green')
+                df = pd.read_sql(sql_query, conn)
+                conn.close()
+                frappe.msgprint("Successfully loaded data from SQL query.", title="SQL Load Success", indicator='green')
+
+            except pymysql.Error as e:
+                frappe.log_error(f"SQL Database connection/query error: {e}", "Inventory Count SQL Import Error")
+                frappe.throw(f"SQL Database Error: {e}. Check your connection details and query in 'Inventory Count Settings'.", title="SQL Error")
+            except Exception as e:
+                frappe.log_error(f"General error during SQL import: {e}", "Inventory Count SQL Import Error")
+                frappe.throw(f"An unexpected error occurred during SQL import: {e}", title="SQL Import Failed")
+
+        else:
+            frappe.throw("Invalid import source type selected in 'Inventory Count Settings'. Please choose 'CSV' or 'SQL Database'.", title="Invalid Source Type")
+
+        # --- Common logic after DataFrame is loaded ---
         df = df.fillna(0)
         
-        # Obtenir ou créer le document parent Inventory Count
-        inventory_count_doc = None
-        if inventory_count_name and frappe.db.exists(parent_doctype, inventory_count_name):
-            inventory_count_doc = frappe.get_doc(parent_doctype, inventory_count_name)
-            print(f"Document Inventory Count '{inventory_count_name}' trouvé.")
-        else:
-            print(f"Document not found")
-
-
-        # Vider la childtable avant d'ajouter de nouvelles entrées (optionnel)
+        # Clear the childtable before adding new entries
         inventory_count_doc.set(child_table_field_name, [])
 
-        # Parcourir chaque ligne du DataFrame et l'ajouter à la childtable
+        # Iterate through each row of the DataFrame and add to the childtable
         for index, row in df.iterrows():
             child_item = inventory_count_doc.append(child_table_field_name, {})
             
-            # Mappage des colonnes du CSV aux champs de la childtable 'inv_virtual_items'
+            # Mappage des colonnes du DataFrame aux champs de la childtable 'inv_virtual_items'
+            # Ensure column names from your CSV/SQL query match these
             try:
-                child_item.location = row['Location']
-                child_item.iv_item_recid = row['IV_Item_RecID']
-                child_item.item_id = row['Item_ID']
-                child_item.shortdescription = row['ShortDescription']
-                child_item.category = row['Category']
-                child_item.vendor_recid = row['Vendor_RecID']
-                child_item.vendor_name = row['Vendor_Name']
-                child_item.warehouse_recid = row['Warehouse_RecID']
-                child_item.warehouse = row['Warehouse']
-                child_item.warehouse_bin_recid = row['Warehouse_Bin_RecID']
-                child_item.bin = row['Bin']
-                child_item.qoh = row['QOH']
-                child_item.lasttransactiondate = row['LastTransactionDate']
-                child_item.iv_audit_recid = row['Warehouse_Bin_RecID']
-                child_item.pickednotshipped = row['PickedNotShipped']
-                child_item.pickednotshippedcost = row['PickedNotShippedCost']
-                child_item.pickednotinvoiced = row['PickedNotInvoiced']
-                child_item.pickednotinvoicedcost = row['PickedNotInvoicedCost']
-                child_item.selectedcost = row['SelectedCost']
-                child_item.extendedcost = row['ExtendedCost']
-                child_item.snlist = row['SNList']
-                # Ajoutez d'autres mappings si votre CSV contient plus de colonnes nécessaires
-                
+                child_item.location = row.get('Location', '')
+                child_item.iv_item_recid = row.get('IV_Item_RecID', '')
+                child_item.item_id = row.get('Item_ID', '')
+                child_item.shortdescription = row.get('ShortDescription', '')
+                child_item.category = row.get('Category', '')
+                child_item.vendor_recid = row.get('Vendor_RecID', '')
+                child_item.vendor_name = row.get('Vendor_Name', '')
+                child_item.warehouse_recid = row.get('Warehouse_RecID', '')
+                child_item.warehouse = row.get('Warehouse', '')
+                child_item.warehouse_bin_recid = row.get('Warehouse_Bin_RecID', '')
+                child_item.bin = row.get('Bin', '')
+                child_item.qoh = row.get('QOH', 0)
+                child_item.lasttransactiondate = row.get('LastTransactionDate', None)
+                child_item.iv_audit_recid = row.get('IV_Audit_RecID', '')
+                child_item.pickednotshipped = row.get('PickedNotShipped', 0)
+                child_item.pickednotshippedcost = row.get('PickedNotShippedCost', 0.0)
+                child_item.pickednotinvoiced = row.get('PickedNotInvoiced', 0)
+                child_item.pickednotinvoicedcost = row.get('PickedNotInvoicedCost', 0.0)
+                child_item.selectedcost = row.get('SelectedCost', 0.0)
+                child_item.extendedcost = row.get('ExtendedCost', 0.0)
+                child_item.snlist = row.get('SNList', '')
+                # Add or adjust these mappings as per your actual data columns and child DocType fields
 
-            except KeyError as e:
-                frappe.throw(f"Colonne manquante dans le CSV: **{e.args[0]}**. Veuillez vérifier l'en-tête de votre 'test.csv'.", title="Erreur de CSV")
+            except Exception as e:
+                frappe.log_error(f"Error mapping data row: {row}. Error: {e}", "Inventory Count Data Mapping Error")
+                frappe.throw(f"Error mapping data row to child table: {e}. Check your CSV/SQL column names and data types.", title="Data Mapping Error")
 
 
         inventory_count_doc.save()
-        frappe.db.commit() # S'assurer que les changements sont persistés dans la base de données
+        frappe.db.commit() # Ensure changes are persisted in the database
+        inventory_count_doc.save()
+        frappe.db.commit() # Ensure changes are persisted in the database
 
         frappe.msgprint(f"Importation terminée pour le document Inventory Count '{inventory_count_doc.name}'.", title="Importation réussie", indicator='green')
         return {"status": "success", "doc_name": inventory_count_doc.name}
 
     except Exception as e:
-        frappe.db.rollback() # Annuler les changements en cas d'erreur
-        frappe.log_error(frappe.get_traceback(), "Erreur lors de l'importation CSV pour Inventory Count")
-        print(f"Une erreur est survenue lors de l'importation: {e}")
+        frappe.db.rollback() # Rollback changes in case of error
+        frappe.log_error(frappe.get_traceback(), "Erreur lors de l'importation de l'Inventory Count")
         import traceback
-        traceback.print_exc() # Pour obtenir plus de détails sur l'erreur
+        traceback.print_exc() # For more detailed error trace in console
         frappe.msgprint(f"Une erreur est survenue lors de l'importation: {e}", title="Erreur d'importation", indicator='red')
         return {"status": "error", "message": str(e)}
 

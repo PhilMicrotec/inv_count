@@ -5,7 +5,18 @@
  "doctype": "DocType",
  "engine": "InnoDB",
  "field_order": [
-  "debug_mode"
+  "debug_mode",
+  "import_settings_section",
+  "import_source_type",
+  "csv_settings_column",
+  "csv_file_path",
+  "sql_settings_column",
+  "sql_host",
+  "sql_port",
+  "sql_database",
+  "sql_username",
+  "sql_password",
+  "sql_query"
  ],
  "fields": [
   {
@@ -13,6 +24,80 @@
    "fieldname": "debug_mode",
    "fieldtype": "Check",
    "label": "Debug Mode"
+  },
+  {
+   "fieldname": "import_settings_section",
+   "fieldtype": "Section Break",
+   "label": "Virtual Inventory Import Settings"
+  },
+  {
+   "fieldname": "import_source_type",
+   "fieldtype": "Select",
+   "label": "Import Source Type",
+   "options": "\nCSV\nSQL Database",
+   "default": "CSV",
+   "reqd": 1,
+   "description": "Select where to import virtual inventory data from."
+  },
+  {
+   "fieldname": "csv_settings_column",
+   "fieldtype": "Column Break",
+   "depends_on": "eval:doc.import_source_type == 'CSV'"
+  },
+  {
+   "fieldname": "csv_file_path",
+   "fieldtype": "Data",
+   "label": "CSV File Path (relative to app folder)",
+   "depends_on": "eval:doc.import_source_type == 'CSV'",
+   "description": "e.g., test.csv (for file in inv_count app folder) or path/to/your_file.csv"
+  },
+  {
+   "fieldname": "sql_settings_column",
+   "fieldtype": "Column Break",
+   "depends_on": "eval:doc.import_source_type == 'SQL Database'"
+  },
+  {
+   "fieldname": "sql_host",
+   "fieldtype": "Data",
+   "label": "SQL Host",
+   "depends_on": "eval:doc.import_source_type == 'SQL Database'",
+   "reqd": "eval:doc.import_source_type == 'SQL Database'"
+  },
+  {
+   "fieldname": "sql_port",
+   "fieldtype": "Int",
+   "label": "SQL Port",
+   "depends_on": "eval:doc.import_source_type == 'SQL Database'",
+   "default": 3306
+  },
+  {
+   "fieldname": "sql_database",
+   "fieldtype": "Data",
+   "label": "SQL Database Name",
+   "depends_on": "eval:doc.import_source_type == 'SQL Database'",
+   "reqd": "eval:doc.import_source_type == 'SQL Database'"
+  },
+  {
+   "fieldname": "sql_username",
+   "fieldtype": "Data",
+   "label": "SQL Username",
+   "depends_on": "eval:doc.import_source_type == 'SQL Database'",
+   "reqd": "eval:doc.import_source_type == 'SQL Database'"
+  },
+  {
+   "fieldname": "sql_password",
+   "fieldtype": "Password",
+   "label": "SQL Password",
+   "depends_on": "eval:doc.import_source_type == 'SQL Database'"
+  },
+  {
+   "fieldname": "sql_query",
+   "fieldtype": "Code",
+   "label": "SQL Query",
+   "options": "SQL",
+   "depends_on": "eval:doc.import_source_type == 'SQL Database'",
+   "description": "Example: SELECT Location, Item_ID, QOH FROM your_inventory_table",
+   "reqd": "eval:doc.import_source_type == 'SQL Database'"
   }
  ],
  "grid_page_length": 50,

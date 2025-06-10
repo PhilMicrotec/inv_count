@@ -14,51 +14,35 @@ frappe.ui.form.on('Inventory Count', {
                 console.error("Error fetching debug_mode setting:", error);
             });
 
-        // --- Custom Buttons ---
-        // Ensure the Import CSV button is added only if it's a new document or if it hasn't been added already
-        // Using `!frm.doc.__islocal` ensures it appears after saving.
-        // Or you can check `frm.custom_buttons` if you want to avoid re-adding on refresh.
-        if (!frm.doc.__islocal && !frm.custom_buttons['Importer Données CSV']) {
-            frm.add_custom_button(__('Importer Données CSV'), function() {
-                frappe.show_alert({
-                    message: __('Importation des données CSV en cours...'),
-                    indicator: 'blue'
-                }, 3);
-
+        if (!frm.doc.__islocal && frm.doc.inv_virtual_items.length === 0 ) {
                 frappe.call({
-                    method: 'inv_count.inventory_count.doctype.inventory_count.inventory_count.import_data_with_pandas',
-                    args: {
-                        inventory_count_name: frm.doc.name
-                    },
-                    callback: function(r) {
-                        if (r.message) {
-                            if (r.message.status === 'success') {
-                                frappe.msgprint({
-                                    message: __('Importation réussie ! Document: ') + r.message.doc_name,
-                                    title: __('Succès'),
-                                    indicator: 'green'
-                                });
-                                frm.reload_doc();
-                            } else {
-                                frappe.msgprint({
-                                    message: __('Erreur lors de l\'importation : ') + r.message.message,
-                                    title: __('Erreur'),
-                                    indicator: 'red'
-                                });
+                        method: 'inv_count.inventory_count.doctype.inventory_count.inventory_count.import_data_with_pandas',
+                        args: {
+                            inventory_count_name: frm.doc.name
+                        },
+                        callback: function(r) {
+                            if (r.message) {
+                                if (r.message.status === 'success') {
+                                    frm.reload_doc(); 
+                                } else {
+                                    frappe.msgprint({
+                                        message: __('Erreur lors de l\'importation : ') + r.message.message,
+                                        title: __('Erreur'),
+                                        indicator: 'red'
+                                    });
+                                }
                             }
+                        },
+                        error: function(err) {
+                            frappe.msgprint({
+                                message: __('Une erreur de communication est survenue: ') + err.message,
+                                title: __('Erreur Serveur'),
+                                indicator: 'red'
+                            });
                         }
-                    },
-                    error: function(err) {
-                        frappe.msgprint({
-                            message: __('Une erreur de communication est survenue: ') + err.message,
-                            title: __('Erreur Serveur'),
-                            indicator: 'red'
-                        });
-                    }
                 });
-            });
-        }
-
+            }
+            
         if (!frm.custom_buttons['Settings']) {
             frm.add_custom_button(__('Settings'), function() {
                 frappe.set_route('Form', 'Inventory Count Settings', {parent_name:cur_frm.doc.name}); // No need for null and doctype: 'Inventory Count' if it's a Single
