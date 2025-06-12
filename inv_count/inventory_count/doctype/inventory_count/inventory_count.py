@@ -1,17 +1,15 @@
 # Copyright (c) 2025, Microtec and contributors
 # For license information, please see license.txt
 
-# import frappe
-from frappe.model.document import Document # type: ignore
-
-
-class InventoryCount(Document):
-	pass
-
 import frappe
+from frappe.model.document import Document
 import pandas as pd
 import os
-import pymysql # Import pymysql for SQL database connection
+import pymysql
+import traceback # Import for more detailed error traceback
+
+class InventoryCount(Document):
+    pass
 
 @frappe.whitelist()
 def import_data_with_pandas(inventory_count_name):
@@ -23,7 +21,7 @@ def import_data_with_pandas(inventory_count_name):
         inventory_count_name (str): The name/ID of the Inventory Count document to update.
     """
     parent_doctype = "Inventory Count"
-    settings_doctype = "Inventory Count Settings" # New: Reference the settings DocType
+    settings_doctype = "Inventory Count Settings"
     child_table_field_name = "inv_virtual_items"
     
     # 1. Get the Inventory Count document (the one being worked on)
@@ -141,8 +139,6 @@ def import_data_with_pandas(inventory_count_name):
 
         inventory_count_doc.save()
         frappe.db.commit() # Ensure changes are persisted in the database
-        inventory_count_doc.save()
-        frappe.db.commit() # Ensure changes are persisted in the database
 
         frappe.msgprint(f"Importation terminée pour le document Inventory Count '{inventory_count_doc.name}'.", title="Importation réussie", indicator='green')
         return {"status": "success", "doc_name": inventory_count_doc.name}
@@ -150,10 +146,10 @@ def import_data_with_pandas(inventory_count_name):
     except Exception as e:
         frappe.db.rollback() # Rollback changes in case of error
         frappe.log_error(frappe.get_traceback(), "Erreur lors de l'importation de l'Inventory Count")
-        import traceback
         traceback.print_exc() # For more detailed error trace in console
         frappe.msgprint(f"Une erreur est survenue lors de l'importation: {e}", title="Erreur d'importation", indicator='red')
         return {"status": "error", "message": str(e)}
+        
 
 @frappe.whitelist()
 def compare_child_tables(doc_name):
@@ -290,8 +286,57 @@ def compare_child_tables(doc_name):
 
         doc.save()
         frappe.db.commit()
+        return {"status": "success", "message": "Comparaison des inventaires terminée avec succès."}
 
 
     except Exception as e:
         frappe.log_error(frappe.get_traceback(), "Error in compare_child_tables")
-        return f"Une erreur est survenue lors de la comparaison des tables : {e}"
+        return {"status": "error", "message": f"Une erreur est survenue lors de la comparaison des tables : {e}"}
+
+# --- NEW WHITELISTED WRAPPER FUNCTIONS FOR ENQUEUEING ---
+
+@frappe.whitelist()
+def enqueue_import_data(inventory_count_name):
+    """
+    Whitelisted wrapper to enqueue the import_data_with_pandas function.
+    This function can be called from client-side JavaScript.
+    """
+    # Optional: Add a permission check here to ensure the user has rights
+    # to trigger this action. For example:
+    # if not frappe.has_permission('Inventory Count', 'write'):
+    #     frappe.throw(frappe._("You do not have permission to trigger this import."), frappe.PermissionError)
+
+    job = frappe.enqueue( # Store the Job object in a variable 'job'
+        method='inv_count.inventory_count.doctype.inventory_count.inventory_count.import_data_with_pandas',
+        queue='short',       # Use 'long' queue for potentially long-running imports
+        timeout=300,      # Set a generous timeout (e.g., 15000 seconds = ~4 hours)
+        is_async=True,
+        # Arguments to pass to the actual `import_data_with_pandas` function
+        inventory_count_name=inventory_count_name
+    )
+    # IMPORTANT: Return a dictionary containing the job's ID (which is a string, hence JSON serializable)
+    return {'job_id': job.id}
+
+
+@frappe.whitelist()
+def enqueue_compare_tables(doc_name):
+    frappe.log_error(f"Attempting to enqueue compare_tables for doc: {doc_name}", "Enqueue Debug")
+
+    # Optional: Add a permission check here
+    if not frappe.has_permission('Inventory Count', 'write'):
+        frappe.throw(frappe._("You do not have permission to trigger this comparison."), frappe.PermissionError)
+
+    try:
+        job = frappe.enqueue(
+            method='inv_count.inventory_count.doctype.inventory_count.inventory_count.compare_child_tables',
+            queue='default',
+            timeout=300,
+            is_async=True,
+            doc_name=doc_name
+        )
+        frappe.log_error(f"Job enqueued successfully: {job.id}", "Enqueue Debug")
+        return {'job_id': job.id}
+    except Exception as e:
+        frappe.log_error(f"Error enqueuing job: {e}", "Enqueue Error")
+        # Re-raise or return a specific error to the client if enqueueing fails
+        frappe.throw(f"Failed to enqueue comparison job: {e}")

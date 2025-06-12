@@ -1,10 +1,14 @@
+// inv_count/inventory_count/doctype/inventory_count/inventory_count.js
+
+let auto_update = false; // Global variable to control auto-update behavior
+
 frappe.ui.form.on('Inventory Count', {
     refresh: function(frm) {
         // --- Debug Mode Visibility Logic ---
+        // Fetches 'debug_mode' setting from 'Inventory Count Settings' and adjusts field visibility.
         frappe.db.get_single_value('Inventory Count Settings', 'debug_mode')
             .then(debug_mode_active => {
                 frm.fields.forEach(function(field) {
-                    // This is the correct way to set hidden state based on debug_mode_active
                     // If debug_mode_active is true (1), hidden becomes 0 (visible)
                     // If debug_mode_active is false (0), hidden reverts to its original DocType state (field.df.hidden)
                     frm.set_df_property(field.df.fieldname, 'hidden', debug_mode_active ? 0 : field.df.hidden);
@@ -14,52 +18,96 @@ frappe.ui.form.on('Inventory Count', {
                 console.error("Error fetching debug_mode setting:", error);
             });
 
+        // --- Automatic Data Import Trigger (Asynchronous) ---
+        // Triggers the import of virtual inventory data if the document is not new and the virtual items table is empty.
+        // This now uses a whitelisted Python wrapper to enqueue the actual import job.
         if (!frm.doc.__islocal && frm.doc.inv_virtual_items.length === 0 ) {
-                frappe.call({
-                        method: 'inv_count.inventory_count.doctype.inventory_count.inventory_count.import_data_with_pandas',
-                        args: {
-                            inventory_count_name: frm.doc.name
-                        },
-                        callback: function(r) {
-                            if (r.message) {
-                                if (r.message.status === 'success') {
-                                    frm.reload_doc(); 
-                                } else {
-                                    frappe.msgprint({
-                                        message: __('Erreur lors de l\'importation : ') + r.message.message,
-                                        title: __('Erreur'),
-                                        indicator: 'red'
-                                    });
-                                }
-                            }
-                        },
-                        error: function(err) {
+            frappe.show_alert({
+                message: __("L'importation de l'inventaire virtuel a démarré en arrière-plan. Cela peut prendre un certain temps."),
+                indicator: 'blue'
+            }, 5); // Show alert for 5 seconds
+
+            frappe.call({
+                // Calls the whitelisted Python wrapper function to enqueue the import
+                method: 'inv_count.inventory_count.doctype.inventory_count.inventory_count.enqueue_import_data',
+                args: {
+                    inventory_count_name: frm.doc.name // Pass the current document's name
+                },
+                callback: function(r) {
+                    // This callback fires when the job is SUCCESSFULLY ENQUEUED on the server.
+                    // It does NOT mean the import job itself is complete.
+                    if (r.message && r.message.job_id) {
+                        const jobId = r.message.job_id;
+                        console.log("Import job enqueued with ID:", jobId);
+                        
+                        // Listen for the specific job completion event via Frappe Realtime
+                        frappe.realtime.on(`job_complete_${jobId}`, () => {
+                            frappe.show_alert({
+                                message: __("Importation de l'inventaire virtuel terminée."),
+                                indicator: 'green'
+                            });
+                            // Crucial: Reload the document to fetch the newly imported data and update the 'modified' timestamp
+                            //frm.reload_doc(); 
+                        });
+
+                        // Listen for job failure events
+                        frappe.realtime.on(`job_failed_${jobId}`, (data) => {
                             frappe.msgprint({
-                                message: __('Une erreur de communication est survenue: ') + err.message,
-                                title: __('Erreur Serveur'),
+                                message: __('L\'importation de l\'inventaire virtuel a échoué : ') + (data.exc || data.message),
+                                title: __('Erreur'),
                                 indicator: 'red'
                             });
-                        }
-                });
-            }
+                            console.error("Import job failed:", data);
+                        });
+
+                    } else {
+                        // Handle cases where the enqueueing itself failed (e.g., server error before job creation)
+                        frappe.msgprint({
+                            message: __('Échec de la mise en file d\'attente de la tâche d\'importation.'),
+                            title: __('Erreur'),
+                            indicator: 'red'
+                        });
+                    }
+                },
+                error: function(err) {
+                    // Handle communication errors when trying to call the enqueue wrapper
+                    frappe.msgprint({
+                        message: __('Erreur de communication lors de la mise en file d\'attente de l\'importation : ') + err.message,
+                        title: __('Erreur Serveur'),
+                        indicator: 'red'
+                    });
+                }
+            });
+        }
             
+        // --- Custom Settings Button ---
+        // Adds a button to quickly navigate to the 'Inventory Count Settings' Single DocType.
         if (!frm.custom_buttons['Settings']) {
             frm.add_custom_button(__('Settings'), function() {
-                frappe.set_route('Form', 'Inventory Count Settings', {parent_name:cur_frm.doc.name}); // No need for null and doctype: 'Inventory Count' if it's a Single
+                frappe.set_route('Form', 'Inventory Count Settings', {parent_name:cur_frm.doc.name});
             });
         }
 
-        // Apply coloring logic on every refresh
+        // --- Apply Coloring Logic on every refresh ---
+        // Ensures physical items are colored based on quantity difference from expected.
         applyPhysicalItemsColoring(frm);
     },
 
     onload: function(frm) {
-        // --- Realtime Update Listener (Good practice) ---
-        // Ensures the form reloads if the document is updated elsewhere via Frappe's realtime
+        // --- Realtime Update Listener for the Current Document ---
+        // This is a general listener for any 'doc_update' event, ensuring the form reloads
+        // if the currently viewed document is modified elsewhere (e.g., by another user, or a different script).
+        // It complements the job_complete listener by catching updates not tied to specific job_ids.
         const event_name = `doc_update`;
         frappe.realtime.on(event_name, (data) => {
-            if (data.doctype === frm.doctype && data.name === frm.doc.name) {
+            if (data.doctype === frm.doctype && data.name === frm.doc.name && auto_update==true) {
+                console.log("Doc update detected via general listener. Reloading form.");
                 frm.reload_doc();
+            }
+        });
+        frappe.realtime.on(`job_*`, (data) => {
+            if (data.doctype === frm.doctype && data.name === frm.doc.name ) {
+                console.log(data);
             }
         });
 
@@ -68,8 +116,9 @@ frappe.ui.form.on('Inventory Count', {
 
         let currentScannedCode = ''; // Variable to store the current scanned code
 
-        // --- Global Keyboard Input Redirection ---
-        // This is the core logic to direct input to the 'code' field when no other field is selected.
+        // --- Global Keyboard Input Redirection (for Barcode Scanners) ---
+        // This is the core logic to direct keyboard input (e.g., from a barcode scanner)
+        // to the 'code' field when no other input field is actively focused.
         const handleGlobalKeyboardInput = function(event) {
             const codeFieldInput = frm.fields_dict && frm.fields_dict['code'] ? frm.fields_dict['code'].input : null;
 
@@ -89,11 +138,13 @@ frappe.ui.form.on('Inventory Count', {
             );
 
             // Also check for Frappe's special input elements (Link, Date, etc.)
-            // You might need to inspect the DOM for specific classes if these don't cover all cases.
+            // These often have specific classes or structures.
             const isFrappeSpecialField = activeElement.closest('.form-control.ui-autocomplete-input') || // For Link fields
-                                         activeElement.closest('.datepicker--cell'); // For Datepickers
+                                         activeElement.closest('.datepicker--cell') || // For Datepickers
+                                         activeElement.closest('.awesomplete'); // For autocomplete/link fields
 
-            // If an input-like element is focused, or a Frappe special field, let the default behavior happen
+            // If an input-like element is focused, or a Frappe special field, let the default behavior happen.
+            // We don't want to hijack typing into other fields.
             if (isInputField || isFrappeSpecialField) {
                 return;
             }
@@ -102,28 +153,25 @@ frappe.ui.form.on('Inventory Count', {
             if (event.ctrlKey || event.altKey || event.metaKey) {
                 return;
             }
-            // Allow typing characters while Shift is held (for capitalization)
-            // if (event.shiftKey && event.key.length !== 1) { // If Shift is pressed but not for a character
-            //     return;
-            // }
-
-            // Prevent default browser actions for common keys that we want to redirect
-            // This is crucial to stop browser search, scrolling, etc.
-            if (event.key.length === 1 || event.key === ' ' || event.key === 'Backspace' || event.key === 'Enter') {
-                event.preventDefault();
-            } else {
-                // For other non-character keys (e.g., arrow keys, F-keys), let default browser behavior happen
+            // Allow typing characters while Shift is held (for capitalization).
+            // This condition is for non-character keys like Shift, Ctrl, Alt, F-keys
+            if (event.key.length > 1 && event.key !== 'Backspace' && event.key !== 'Enter' && event.key !== ' ') {
                 return;
             }
 
+            // Prevent default browser actions for common keys that we want to redirect
+            // This is crucial to stop browser search (e.g., by typing a letter), scrolling, etc.
+            event.preventDefault();
+
             // --- Process the key input and direct it to the 'code' field ---
             if (event.key === 'Backspace') {
+                // If Backspace is pressed, remove the last character
                 if (codeFieldInput.value.length > 0) {
                     codeFieldInput.value = codeFieldInput.value.slice(0, -1);
                 }
             } else if (event.key === 'Enter') {
-                // When Enter is pressed globally, we want to trigger the existing onkeypress logic
-                // on the code field itself. This is more robust than re-implementing the logic here.
+                // When Enter is pressed globally, simulate an 'Enter' keypress on the 'code' field.
+                // This triggers the specific onkeypress logic for that field.
                 const enterEvent = new KeyboardEvent('keypress', {
                     key: 'Enter',
                     keyCode: 13,
@@ -132,15 +180,15 @@ frappe.ui.form.on('Inventory Count', {
                     cancelable: true
                 });
                 codeFieldInput.dispatchEvent(enterEvent);
-                // After processing Enter, clear the scanned code variable if the field is cleared
-                currentScannedCode = ''; // Reset after 'Enter' is processed
+                // After processing Enter, clear the temporary scanned code variable
+                currentScannedCode = ''; 
             } else if (event.key.length === 1 || event.key === ' ') {
-                // Append character to the value
+                // Append character (or space) to the value
                 codeFieldInput.value += event.key;
                 // Update the temporary variable for 'input' event processing
                 currentScannedCode = codeFieldInput.value;
 
-                // Manually trigger an 'input' event to notify Frappe's reactivity
+                // Manually trigger an 'input' event to notify Frappe's reactivity system
                 const inputEvent = new Event('input', { bubbles: true });
                 codeFieldInput.dispatchEvent(inputEvent);
             }
@@ -151,20 +199,20 @@ frappe.ui.form.on('Inventory Count', {
             codeFieldInput.setSelectionRange(len, len);
         };
 
-        // Add the global keydown listener
+        // Add the global keydown listener when the form loads
         document.addEventListener('keydown', handleGlobalKeyboardInput);
 
         // --- Clean up global listener when form is closed ---
-        // This is crucial for performance and to prevent unintended behavior on other DocTypes
+        // This is crucial for performance and to prevent unintended behavior on other DocTypes.
         frm.on_close = function() {
             document.removeEventListener('keydown', handleGlobalKeyboardInput);
             console.log("Global keydown listener for 'code' field removed.");
         };
 
         // --- Initial setup for the 'code' field (original onkeypress logic) ---
-        // This part remains as it handles the Enter key specifically on the 'code' field
+        // This part handles the Enter key specifically on the 'code' field,
         // as well as the 'input' event for live tracking.
-        setTimeout(() => { // Using setTimeout to ensure DOM is ready
+        setTimeout(() => { // Using setTimeout to ensure DOM is ready and field exists
             const codeFieldInput = frm.fields_dict && frm.fields_dict['code'] ? frm.fields_dict['code'].input : null;
 
             if (codeFieldInput) {
@@ -173,10 +221,10 @@ frappe.ui.form.on('Inventory Count', {
                     currentScannedCode = e.target.value;
                 });
 
-                // The onkeypress logic for the 'code' field itself
+                // The onkeypress logic for the 'code' field itself (handles Enter)
                 codeFieldInput.onkeypress = function(e) {
                     if (e.keyCode === 13) { // Enter key
-                        e.preventDefault(); // Prevent default form submission or new line in textarea
+                        e.preventDefault(); // Prevent default form submission or new line
 
                         const enteredCode = currentScannedCode.trim();
 
@@ -185,7 +233,7 @@ frappe.ui.form.on('Inventory Count', {
                             let itemDescription = '';
                             let expectedQty = 0;
 
-                            // Find description and QOH in virtual items first
+                            // 1. Find description and QOH in virtual items first
                             if (frm.doc[virtualItemsTable] && frm.doc[virtualItemsTable].length > 0) {
                                 const virtualItem = frm.doc[virtualItemsTable].find(row => row.item_id === enteredCode);
                                 if (virtualItem) {
@@ -194,7 +242,7 @@ frappe.ui.form.on('Inventory Count', {
                                 }
                             }
 
-                            // Update or add to physical items
+                            // 2. Update or add to physical items
                             if (frm.doc[physicalItemsTable] && frm.doc[physicalItemsTable].length > 0) {
                                 for (let row of frm.doc[physicalItemsTable]) {
                                     if (row.code === enteredCode) {
@@ -202,6 +250,7 @@ frappe.ui.form.on('Inventory Count', {
                                         foundExistingRow = true;
 
                                         frappe.model.set_value(row.doctype, row.name, 'qty', newQty);
+                                        // Update description and expected_qty if they've changed in virtual inventory
                                         if (row.description !== itemDescription) {
                                             frappe.model.set_value(row.doctype, row.name, 'description', itemDescription);
                                         }
@@ -214,6 +263,7 @@ frappe.ui.form.on('Inventory Count', {
                             }
 
                             if (!foundExistingRow) {
+                                // If not found, add a new row
                                 const newRow = frm.add_child(physicalItemsTable);
                                 newRow.code = enteredCode;
                                 newRow.qty = 1;
@@ -221,16 +271,18 @@ frappe.ui.form.on('Inventory Count', {
                                 newRow.expected_qty = expectedQty;
                             }
 
-                            frm.refresh_field(physicalItemsTable);
-                            applyPhysicalItemsColoring(frm);
-                            frm.set_value('code', ''); // Clear the main 'code' field
+                            frm.refresh_field(physicalItemsTable); // Refresh the child table display
+                            applyPhysicalItemsColoring(frm); // Re-apply coloring
+                            frm.set_value('code', ''); // Clear the main 'code' field for next scan
                             frm.refresh_field('code'); // Refresh the 'code' field display
 
                             // Reset the temporary variable for the next scan
                             currentScannedCode = '';
 
-                            if (!foundExistingRow) frm.save(); // Save the document after modification
-
+                            // Auto-save the document if a new item was added (otherwise, changes are handled by child table events)
+                            if (!foundExistingRow) {
+                                frm.save();
+                            }
                         } else {
                             frappe.show_alert({
                                 message: __("Veuillez entrer un code avant d'appuyer sur Entrée."),
@@ -247,42 +299,98 @@ frappe.ui.form.on('Inventory Count', {
     },
 
     // --- Before Submit Logic ---
+    // This logic ensures necessary checks are performed before the document is submitted.
+    // It now uses a Promise to handle the asynchronous comparison check,
+    // ensuring the form reloads the latest data before the final confirmation check.
     before_submit: function(frm) {
-        frappe.call({
-            method: "inv_count.inventory_count.doctype.inventory_count.inventory_count.compare_child_tables",
-            args: {
-                doc_name: frm.doc.name
-            },
-            callback: function(r) {
-                if (r.message) {
-                    frappe.msgprint(r.message);
-                    frm.refresh_field('inv_difference');
+        // First, basic check for physical items
+        if (!frm.doc.inv_physical_items || frm.doc.inv_physical_items.length === 0) {
+            frappe.throw(__("Veuillez scanner ou ajouter au moins un article dans l'inventaire physique pour pouvoir soumettre."));
+            return false;
+        }
+
+        // Return a Promise to make before_submit asynchronous
+        return new Promise((resolve, reject) => {
+            frappe.show_alert({
+                message: __("Calcul des différences d'inventaire en cours..."),
+                indicator: 'blue'
+            });
+
+            // Call the whitelisted Python wrapper to enqueue the comparison
+            frappe.call({
+                method: "inv_count.inventory_count.doctype.inventory_count.inventory_count.enqueue_compare_tables",
+                args: {
+                    doc_name: frm.doc.name
+                },
+                callback: function(r) {
+                    if (r.message && r.message.job_id) {
+                        const jobId = r.message.job_id;
+                        console.log("Comparison job enqueued with ID:", jobId);
+
+                        // Listen for job completion
+                        frappe.realtime.on(`job_complete_${jobId}`, () => {
+                            frappe.show_alert({
+                                message: __("Comparaison des inventaires terminée."),
+                                indicator: 'green'
+                            });
+                            // CRITICAL: Reload the document to get the updated inv_difference table and timestamp
+                            frm.reload_doc().then(() => {
+                                frm.refresh_field('inv_difference'); // Ensure the grid is refreshed
+                                // Now, perform the confirmation check after the document is fully reloaded
+                                checkAllDifferencesConfirmed(frm, resolve, reject);
+                            }).catch(e => {
+                                console.error("Error during reload after comparison job completion:", e);
+                                frappe.msgprint(__("Erreur lors du rechargement après calcul des différences."));
+                                reject();
+                            });
+                        });
+
+                        // Listen for job failure
+                        frappe.realtime.on(`job_failed_${jobId}`, (data) => {
+                            frappe.msgprint({
+                                message: __('La comparaison des inventaires a échoué : ') + (data.exc || data.message),
+                                title: __('Erreur'),
+                                indicator: 'red'
+                            });
+                            reject();
+                        });
+
+                    } else {
+                        frappe.msgprint(__("Échec de la mise en file d'attente de la tâche de comparaison."));
+                        reject();
+                    }
+                },
+                error: function(err) {
+                    frappe.msgprint(__("Erreur de communication lors de la mise en file d'attente de la comparaison : ") + err.message);
+                    reject();
                 }
-            },
-            error: function(err) {
-                frappe.msgprint(__("Erreur lors de la comparaison : ") + err.message);
-            }
+            });
         });
-
-        const invDifferenceTable = frm.doc.inv_difference;
-
-        let allConfirmed = true;
-        for (let i = 0; i < invDifferenceTable.length; i++) {
-            const row = invDifferenceTable[i];
-            if (!row.confirmed) {
-                allConfirmed = false;
-                break;
-            }
-        }
-
-        if (!allConfirmed) {
-            cur_frm.set_df_property('inv_difference', 'hidden', 0);
-            frappe.throw(__("Veuillez confirmer toutes les différences d'inventaire en cochant la case 'Confirmé' dans chaque ligne."));
-            // Ensure the inv_difference section is visible so the user can see the checkboxes
-            return false; // Prevent submission
-        }
     }
 });
+
+// --- Helper function to check if all differences are confirmed ---
+function checkAllDifferencesConfirmed(frm, resolve, reject) {
+    const invDifferenceTable = frm.doc.inv_difference;
+    let allConfirmed = true;
+    for (let i = 0; i < invDifferenceTable.length; i++) {
+        const row = invDifferenceTable[i];
+        // Only check for unconfirmed rows if there is an actual difference (qty > 0 or < 0)
+        // If difference_qty is 0, it means it was a discrepancy that got resolved and should not block submission.
+        if (!row.confirmed && cint(row.difference_qty) !== 0) {
+            allConfirmed = false;
+            break;
+        }
+    }
+    if (!allConfirmed) {
+        // Ensure the inv_difference section is visible so the user can see the checkboxes
+        cur_frm.set_df_property('inv_difference', 'hidden', 0);
+        frappe.throw(__("Veuillez confirmer toutes les différences d'inventaire non résolues en cochant la case 'Confirmé' dans chaque ligne."));
+        reject(); // Prevent submission
+    } else {
+        resolve(); // Allow submission
+    }
+}
 
 // --- Child Table Event Handlers (Outside main frappe.ui.form.on) ---
 // These apply to changes within rows of the child table, not the parent form.
@@ -316,9 +424,9 @@ function applyPhysicalItemsColoring(frm) {
                 if (qty === expected_qty) {
                     $(item).find('.grid-static-col').css({'background-color': '#90EE90'}); // Light Green
                 } else if (expected_qty === 0) {
-                    $(item).find('.grid-static-col').css({'background-color': '#FFFFE0'}); // Light Yellow
+                    $(item).find('.grid-static-col').css({'background-color': '#FFFFE0'}); // Light Yellow (for items not expected, but physically present)
                 } else {
-                    $(item).find('.grid-static-col').css({'background-color': '#FFCCCB'}); // Light Red
+                    $(item).find('.grid-static-col').css({'background-color': '#FFCCCB'}); // Light Red (for quantity discrepancies)
                 }
             }
         });
