@@ -140,8 +140,7 @@ def import_data_with_pandas(inventory_count_name):
         inventory_count_doc.save()
         frappe.db.commit() # Ensure changes are persisted in the database
 
-        frappe.msgprint(f"Importation terminée pour le document Inventory Count '{inventory_count_doc.name}'.", title="Importation réussie", indicator='green')
-        return {"status": "success", "doc_name": inventory_count_doc.name}
+        frappe.publish_realtime("Import Complete")
 
     except Exception as e:
         frappe.db.rollback() # Rollback changes in case of error
@@ -286,6 +285,7 @@ def compare_child_tables(doc_name):
 
         doc.save()
         frappe.db.commit()
+        frappe.publish_realtime("Compare Complete")
         return {"status": "success", "message": "Comparaison des inventaires terminée avec succès."}
 
 

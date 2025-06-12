@@ -1,6 +1,7 @@
 // inv_count/inventory_count/doctype/inventory_count/inventory_count.js
 
 let auto_update = false; // Global variable to control auto-update behavior
+let initialized = false; // Flag to track if the form has been initialized
 
 frappe.ui.form.on('Inventory Count', {
     refresh: function(frm) {
@@ -17,11 +18,10 @@ frappe.ui.form.on('Inventory Count', {
             .catch(error => {
                 console.error("Error fetching debug_mode setting:", error);
             });
-
-        // --- Automatic Data Import Trigger (Asynchronous) ---
-        // Triggers the import of virtual inventory data if the document is not new and the virtual items table is empty.
-        // This now uses a whitelisted Python wrapper to enqueue the actual import job.
-        if (!frm.doc.__islocal && frm.doc.inv_virtual_items.length === 0 ) {
+        
+ 
+        if (!frm.doc.__islocal && frm.doc.inv_virtual_items.length === 0 && !initialized) {
+            initialized = true; // Set initialized to true to prevent multiple calls
             frappe.show_alert({
                 message: __("L'importation de l'inventaire virtuel a démarré en arrière-plan. Cela peut prendre un certain temps."),
                 indicator: 'blue'
@@ -41,7 +41,7 @@ frappe.ui.form.on('Inventory Count', {
                         console.log("Import job enqueued with ID:", jobId);
                         
                         // Listen for the specific job completion event via Frappe Realtime
-                        frappe.realtime.on(`job_complete_${jobId}`, () => {
+                        frappe.realtime.on(`Import Complete`, () => {
                             frappe.show_alert({
                                 message: __("Importation de l'inventaire virtuel terminée."),
                                 indicator: 'green'
@@ -57,6 +57,7 @@ frappe.ui.form.on('Inventory Count', {
                                 title: __('Erreur'),
                                 indicator: 'red'
                             });
+                            initialized = false; // Reset initialized to allow future imports
                             console.error("Import job failed:", data);
                         });
 
@@ -67,6 +68,7 @@ frappe.ui.form.on('Inventory Count', {
                             title: __('Erreur'),
                             indicator: 'red'
                         });
+                        initialized = false; // Reset initialized to allow future imports
                     }
                 },
                 error: function(err) {
@@ -76,8 +78,10 @@ frappe.ui.form.on('Inventory Count', {
                         title: __('Erreur Serveur'),
                         indicator: 'red'
                     });
+                    initialized = false; // Reset initialized to allow future imports
                 }
             });
+
         }
             
         // --- Custom Settings Button ---
@@ -105,11 +109,7 @@ frappe.ui.form.on('Inventory Count', {
                 frm.reload_doc();
             }
         });
-        frappe.realtime.on(`job_*`, (data) => {
-            if (data.doctype === frm.doctype && data.name === frm.doc.name ) {
-                console.log(data);
-            }
-        });
+        console.log("test");
 
         const physicalItemsTable = 'inv_physical_items';
         const virtualItemsTable = 'inv_virtual_items';
@@ -328,7 +328,7 @@ frappe.ui.form.on('Inventory Count', {
                         console.log("Comparison job enqueued with ID:", jobId);
 
                         // Listen for job completion
-                        frappe.realtime.on(`job_complete_${jobId}`, () => {
+                        frappe.realtime.on(`Compare Complete`, () => {
                             frappe.show_alert({
                                 message: __("Comparaison des inventaires terminée."),
                                 indicator: 'green'
@@ -339,8 +339,6 @@ frappe.ui.form.on('Inventory Count', {
                                 // Now, perform the confirmation check after the document is fully reloaded
                                 checkAllDifferencesConfirmed(frm, resolve, reject);
                             }).catch(e => {
-                                console.error("Error during reload after comparison job completion:", e);
-                                frappe.msgprint(__("Erreur lors du rechargement après calcul des différences."));
                                 reject();
                             });
                         });
@@ -377,7 +375,7 @@ function checkAllDifferencesConfirmed(frm, resolve, reject) {
         const row = invDifferenceTable[i];
         // Only check for unconfirmed rows if there is an actual difference (qty > 0 or < 0)
         // If difference_qty is 0, it means it was a discrepancy that got resolved and should not block submission.
-        if (!row.confirmed && cint(row.difference_qty) !== 0) {
+        if (!row.confirmed) {
             allConfirmed = false;
             break;
         }
