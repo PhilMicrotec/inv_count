@@ -26,7 +26,8 @@
   "pickednotinvoicedcost",
   "selectedcost",
   "extendedcost",
-  "snlist"
+  "snlist",
+  "qty"
  ],
  "fields": [
   {
@@ -89,7 +90,6 @@
   {
    "fieldname": "qoh",
    "fieldtype": "Data",
-   "in_list_view": 1,
    "label": "QOH"
   },
   {
@@ -136,13 +136,19 @@
    "fieldname": "snlist",
    "fieldtype": "Data",
    "label": "SNList"
+  },
+  {
+   "fieldname": "qty",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Quantit\u00e9"
   }
  ],
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "istable": 1,
  "links": [],
- "modified": "2025-06-06 10:56:35.761183",
+ "modified": "2025-06-13 13:12:23.471760",
  "modified_by": "Administrator",
  "module": "Inventory Count",
  "name": "Inv_virtual_items",

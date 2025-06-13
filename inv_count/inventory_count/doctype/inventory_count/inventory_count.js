@@ -1,6 +1,6 @@
 // inv_count/inventory_count/doctype/inventory_count/inventory_count.js
 
-let auto_update = false; // Global variable to control auto-update behavior
+let auto_update = true; // Global variable to control auto-update behavior
 let initialized = false; // Flag to track if the form has been initialized
 
 frappe.ui.form.on('Inventory Count', {
@@ -238,7 +238,7 @@ frappe.ui.form.on('Inventory Count', {
                                 const virtualItem = frm.doc[virtualItemsTable].find(row => row.item_id === enteredCode);
                                 if (virtualItem) {
                                     itemDescription = virtualItem.shortdescription || '';
-                                    expectedQty = virtualItem.qoh || 0;
+                                    expectedQty = virtualItem.qty || 0;
                                 }
                             }
 

@@ -7,6 +7,9 @@ import pandas as pd
 import os
 import pymysql
 import traceback # Import for more detailed error traceback
+import requests
+import base64
+import json
 
 class InventoryCount(Document):
     pass
@@ -102,6 +105,8 @@ def import_data_with_pandas(inventory_count_name):
         # Clear the childtable before adding new entries
         inventory_count_doc.set(child_table_field_name, [])
 
+        qoh_calculation_type = settings_doc.get('qty_calculation_type', 'QOH + Picked') 
+
         # Iterate through each row of the DataFrame and add to the childtable
         for index, row in df.iterrows():
             child_item = inventory_count_doc.append(child_table_field_name, {})
@@ -121,6 +126,14 @@ def import_data_with_pandas(inventory_count_name):
                 child_item.warehouse_bin_recid = row.get('Warehouse_Bin_RecID', '')
                 child_item.bin = row.get('Bin', '')
                 child_item.qoh = row.get('QOH', 0)
+                if qoh_calculation_type == 'QOH':
+                    child_item.qty = row.get('QOH', 0)
+                elif qoh_calculation_type == 'QOH+PickedNotShipped': 
+                    child_item.qty = row.get('QOH', 0) + row.get('PickedNotShipped', 0) 
+                elif qoh_calculation_type == 'QOH+PickedNotInvoiced': 
+                    child_item.qty = row.get('QOH', 0) + row.get('PickedNotInvoiced', 0)
+                elif qoh_calculation_type == 'QOH+PickedNotShipped+PickedNotInvoiced': 
+                    child_item.qty = row.get('QOH', 0) + row.get('PickedNotShipped', 0) + row.get('PickedNotInvoiced', 0)
                 child_item.lasttransactiondate = row.get('LastTransactionDate', None)
                 child_item.iv_audit_recid = row.get('IV_Audit_RecID', '')
                 child_item.pickednotshipped = row.get('PickedNotShipped', 0)
@@ -175,7 +188,7 @@ def compare_child_tables(doc_name):
             for row in physical_items
         }
         virtual_items_map = {
-            row.get("item_id"): int(row.get("qoh") or 0)
+            row.get("item_id"): int(row.get("qty") or 0)
             for row in virtual_items
         }
         description_virtual_item_map = {

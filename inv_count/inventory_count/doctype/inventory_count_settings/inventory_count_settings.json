@@ -6,6 +6,10 @@
  "engine": "InnoDB",
  "field_order": [
   "debug_mode",
+  "connectwise_public_key",
+  "connectwise_private_key",
+  "connectwise_client_id",
+  "qty_calculation_type",
   "import_settings_section",
   "import_source_type",
   "csv_settings_column",
@@ -31,80 +35,99 @@
    "label": "Virtual Inventory Import Settings"
   },
   {
+   "default": "CSV",
+   "description": "Select where to import virtual inventory data from.",
    "fieldname": "import_source_type",
    "fieldtype": "Select",
+   "in_list_view": 1,
    "label": "Import Source Type",
    "options": "\nCSV\nSQL Database",
-   "default": "CSV",
-   "reqd": 1,
-   "description": "Select where to import virtual inventory data from."
+   "reqd": 1
   },
   {
+   "depends_on": "eval:doc.import_source_type == 'CSV'",
    "fieldname": "csv_settings_column",
-   "fieldtype": "Column Break",
-   "depends_on": "eval:doc.import_source_type == 'CSV'"
+   "fieldtype": "Column Break"
   },
   {
+   "depends_on": "eval:doc.import_source_type == 'CSV'",
+   "description": "e.g., test.csv (for file in inv_count app folder) or path/to/your_file.csv",
    "fieldname": "csv_file_path",
    "fieldtype": "Data",
-   "label": "CSV File Path (relative to app folder)",
-   "depends_on": "eval:doc.import_source_type == 'CSV'",
-   "description": "e.g., test.csv (for file in inv_count app folder) or path/to/your_file.csv"
+   "label": "CSV File Path (relative to app folder)"
   },
   {
+   "depends_on": "eval:doc.import_source_type == 'SQL Database'",
    "fieldname": "sql_settings_column",
-   "fieldtype": "Column Break",
-   "depends_on": "eval:doc.import_source_type == 'SQL Database'"
+   "fieldtype": "Column Break"
   },
   {
+   "depends_on": "eval:doc.import_source_type == 'SQL Database'",
    "fieldname": "sql_host",
    "fieldtype": "Data",
-   "label": "SQL Host",
-   "depends_on": "eval:doc.import_source_type == 'SQL Database'",
-   "reqd": "eval:doc.import_source_type == 'SQL Database'"
+   "label": "SQL Host"
   },
   {
+   "default": "3306",
+   "depends_on": "eval:doc.import_source_type == 'SQL Database'",
    "fieldname": "sql_port",
    "fieldtype": "Int",
-   "label": "SQL Port",
-   "depends_on": "eval:doc.import_source_type == 'SQL Database'",
-   "default": 3306
+   "label": "SQL Port"
   },
   {
+   "depends_on": "eval:doc.import_source_type == 'SQL Database'",
    "fieldname": "sql_database",
    "fieldtype": "Data",
-   "label": "SQL Database Name",
-   "depends_on": "eval:doc.import_source_type == 'SQL Database'",
-   "reqd": "eval:doc.import_source_type == 'SQL Database'"
+   "label": "SQL Database Name"
   },
   {
+   "depends_on": "eval:doc.import_source_type == 'SQL Database'",
    "fieldname": "sql_username",
    "fieldtype": "Data",
-   "label": "SQL Username",
-   "depends_on": "eval:doc.import_source_type == 'SQL Database'",
-   "reqd": "eval:doc.import_source_type == 'SQL Database'"
+   "label": "SQL Username"
   },
   {
+   "depends_on": "eval:doc.import_source_type == 'SQL Database'",
    "fieldname": "sql_password",
    "fieldtype": "Password",
-   "label": "SQL Password",
-   "depends_on": "eval:doc.import_source_type == 'SQL Database'"
+   "label": "SQL Password"
   },
   {
+   "depends_on": "eval:doc.import_source_type == 'SQL Database'",
+   "description": "Example: SELECT Location, Item_ID, QOH FROM your_inventory_table",
    "fieldname": "sql_query",
    "fieldtype": "Code",
    "label": "SQL Query",
-   "options": "SQL",
-   "depends_on": "eval:doc.import_source_type == 'SQL Database'",
-   "description": "Example: SELECT Location, Item_ID, QOH FROM your_inventory_table",
-   "reqd": "eval:doc.import_source_type == 'SQL Database'"
+   "options": "SQL"
+  },
+  {
+   "default": "QOH+PickedNotShipped+PickedNotInvoiced",
+   "fieldname": "qty_calculation_type",
+   "fieldtype": "Select",
+   "label": "Qty Calculation",
+   "options": "QOH\nQOH+PickedNotShipped\nQOH+PickedNotInvoiced\nQOH+PickedNotShipped+PickedNotInvoiced"
+  },
+  {
+   "fieldname": "connectwise_public_key",
+   "fieldtype": "Data",
+   "label": "Connectwise Public Key"
+  },
+  {
+   "fieldname": "connectwise_private_key",
+   "fieldtype": "Data",
+   "label": "Connectwise Private Key"
+  },
+  {
+   "fieldname": "connectwise_client_id",
+   "fieldtype": "Data",
+   "label": "Connectwise Client ID"
   }
  ],
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "issingle": 1,
  "links": [],
- "modified": "2025-06-03 12:09:36.412559",
+ "modified": "2025-06-13 13:41:00.905970",
  "modified_by": "Administrator",
  "module": "Inventory Count",
  "name": "Inventory Count Settings",
