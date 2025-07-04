@@ -10,11 +10,19 @@
   "location",
   "warehouse",
   "warehouse_bin",
+  "type",
   "date",
+  "category",
   "section_break_slsq",
   "code",
   "inv_physical_items",
+  "section_virtual_inventory",
+  "column_break_wlqy",
   "inv_virtual_items",
+  "inventory_difference_section",
+  "column_break_ybrb",
+  "adjustment_type",
+  "reason",
   "inv_difference"
  ],
  "fields": [
@@ -33,16 +41,20 @@
    "search_index": 1
   },
   {
+   "default": "Drummondville",
    "fieldname": "location",
    "fieldtype": "Select",
    "label": "Location",
-   "read_only_depends_on": "eval:!(doc.__islocal)"
+   "options": "Drummondville",
+   "read_only_depends_on": "eval:!(doc.__islocal)",
+   "reqd": 1
   },
   {
    "fieldname": "warehouse",
    "fieldtype": "Select",
    "label": "Warehouse",
-   "read_only_depends_on": "eval:!(doc.__islocal)"
+   "read_only_depends_on": "eval:!(doc.__islocal)",
+   "reqd": 1
   },
   {
    "fieldname": "warehouse_bin",
@@ -78,7 +90,6 @@
   {
    "fieldname": "inv_virtual_items",
    "fieldtype": "Table",
-   "hidden": 1,
    "label": "Virtual Inventory",
    "options": "Inv_virtual_items",
    "read_only": 1
@@ -86,16 +97,62 @@
   {
    "fieldname": "inv_difference",
    "fieldtype": "Table",
-   "hidden": 1,
    "label": "Inventory difference to Apply",
    "options": "Inv_difference"
+  },
+  {
+   "depends_on": "eval:!(doc.__islocal)",
+   "fieldname": "category",
+   "fieldtype": "Select",
+   "label": "Category",
+   "read_only": 1
+  },
+  {
+   "fieldname": "type",
+   "fieldtype": "Select",
+   "label": "Count Type",
+   "options": "Annuel\nMensuel\nAutre",
+   "reqd": 1
+  },
+  {
+   "depends_on": "eval:!(doc.__islocal)",
+   "fieldname": "inventory_difference_section",
+   "fieldtype": "Section Break",
+   "hidden": 1,
+   "label": "Inventory Difference"
+  },
+  {
+   "fieldname": "column_break_wlqy",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "column_break_ybrb",
+   "fieldtype": "Column Break"
+  },
+  {
+   "depends_on": "eval:!(doc.__islocal)",
+   "fieldname": "section_virtual_inventory",
+   "fieldtype": "Section Break",
+   "hidden": 1
+  },
+  {
+   "fieldname": "adjustment_type",
+   "fieldtype": "Select",
+   "label": "Adjustment Type",
+   "read_only": 1
+  },
+  {
+   "fieldname": "reason",
+   "fieldtype": "Data",
+   "label": "Reason",
+   "length": 50
   }
  ],
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "is_submittable": 1,
  "links": [],
- "modified": "2025-06-06 14:35:29.123610",
+ "modified": "2025-07-04 12:03:05.470090",
  "modified_by": "Administrator",
  "module": "Inventory Count",
  "name": "Inventory Count",
@@ -119,5 +176,14 @@
  "row_format": "Dynamic",
  "sort_field": "creation",
  "sort_order": "DESC",
- "states": []
+ "states": [
+  {
+   "color": "Blue",
+   "title": "test"
+  },
+  {
+   "color": "Blue",
+   "title": "test2"
+  }
+ ]
 }

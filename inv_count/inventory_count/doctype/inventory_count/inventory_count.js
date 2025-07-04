@@ -1,27 +1,77 @@
 // inv_count/inventory_count/doctype/inventory_count/inventory_count.js
 
-let auto_update = true; // Global variable to control auto-update behavior
+let auto_update = true; // Flag to control automatic updates
 let initialized = false; // Flag to track if the form has been initialized
+let debug_mode = false; // Flag to track if debug mode is active
 
 frappe.ui.form.on('Inventory Count', {
     refresh: function(frm) {
         // --- Debug Mode Visibility Logic ---
         // Fetches 'debug_mode' setting from 'Inventory Count Settings' and adjusts field visibility.
         frappe.db.get_single_value('Inventory Count Settings', 'debug_mode')
-            .then(debug_mode_active => {
-                frm.fields.forEach(function(field) {
-                    // If debug_mode_active is true (1), hidden becomes 0 (visible)
-                    // If debug_mode_active is false (0), hidden reverts to its original DocType state (field.df.hidden)
-                    frm.set_df_property(field.df.fieldname, 'hidden', debug_mode_active ? 0 : field.df.hidden);
-                });
+            .then(debug_mode_setting => {
+                debug_mode = debug_mode_setting || false; // Default to false if not set
+                if (debug_mode) {
+                    cur_frm.set_df_property('inventory_difference_section', 'hidden', false);
+                    cur_frm.set_df_property('section_virtual_inventory', 'hidden', false);
+                }
             })
             .catch(error => {
                 console.error("Error fetching debug_mode setting:", error);
             });
-        
+            
+            if (frm.doc.__islocal) {
+                frappe.call({
+                method: 'inv_count.inventory_count.doctype.inventory_count.inventory_count.get_connectwise_warehouses_and_bins',
+                callback: function(r) {
+                    if (r.message) {
+                        const warehouses = r.message.warehouses;
+                        const bins_map = r.message.bins_map;
+
+                        // Set options for the 'warehouse' field
+                        // Add an empty option at the beginning to allow unselecting
+                        if (warehouses && warehouses.length > 0) {
+                            frm.set_df_property('warehouse', 'options', [""] /* Empty option */.concat(warehouses));
+                        } else {
+                            frm.set_df_property('warehouse', 'options', [""]); // No options if none found
+                        }
+
+                        // Store the bins_map on the form object for later dynamic updates
+                        // This avoids fetching data again when only the warehouse selection changes
+                        frm.__connectwise_bins_map = bins_map;
+
+                        // Clear and refresh warehouse_bin options initially
+                        // They will be populated when a 'warehouse' is selected
+                        frm.set_df_property('warehouse_bin', 'options', [""]);
+                        if (frm.doc.warehouse) {
+                            frm.trigger('warehouse'); 
+                        }
+                        frm.refresh_field('warehouse');
+                        frm.refresh_field('warehouse_bin');
+
+                    } else if (r.exc) {
+                        // Display error from server-side traceback
+                        frappe.show_alert({
+                            message: __("Error loading ConnectWise warehouses: ") + r.exc.split('\n')[0],
+                            indicator: 'red'
+                        }, 10);
+                        console.error("ConnectWise API call failed:", r.exc);
+                    }
+                },
+                error: function(err) {
+                    // Display client-side communication error
+                    frappe.show_alert({
+                        message: __("Server communication error for ConnectWise warehouses: ") + err.message,
+                        indicator: 'red'
+                    }, 10);
+                    console.error("Server communication error for ConnectWise warehouses:", err);
+                }
+            });
+        }
  
         if (!frm.doc.__islocal && frm.doc.inv_virtual_items.length === 0 && !initialized) {
             initialized = true; // Set initialized to true to prevent multiple calls
+            auto_updater(false); // Disable auto-update during initial import
             frappe.show_alert({
                 message: __("L'importation de l'inventaire virtuel a démarré en arrière-plan. Cela peut prendre un certain temps."),
                 indicator: 'blue'
@@ -46,18 +96,22 @@ frappe.ui.form.on('Inventory Count', {
                                 message: __("Importation de l'inventaire virtuel terminée."),
                                 indicator: 'green'
                             });
-                            // Crucial: Reload the document to fetch the newly imported data and update the 'modified' timestamp
-                            //frm.reload_doc(); 
+                            frm.reload_doc().then(() => {
+                                // Then, populate the categories using the fresh data
+                                populateMainCategoryDropdown(frm);
+                                auto_updater(true); // Re-enable auto-update after import
+                            });
                         });
 
                         // Listen for job failure events
-                        frappe.realtime.on(`job_failed_${jobId}`, (data) => {
+                        frappe.realtime.on(`Import Error`, (data) => {
                             frappe.msgprint({
-                                message: __('L\'importation de l\'inventaire virtuel a échoué : ') + (data.exc || data.message),
+                                message: __('L\'importation de l\'inventaire virtuel a échoué : ') + (data.message),
                                 title: __('Erreur'),
                                 indicator: 'red'
                             });
                             initialized = false; // Reset initialized to allow future imports
+                            auto_updater(true); // Re-enable auto-update after import failure
                             console.error("Import job failed:", data);
                         });
 
@@ -69,6 +123,7 @@ frappe.ui.form.on('Inventory Count', {
                             indicator: 'red'
                         });
                         initialized = false; // Reset initialized to allow future imports
+                        auto_updater(true); // Re-enable auto-update after import failure
                     }
                 },
                 error: function(err) {
@@ -79,6 +134,7 @@ frappe.ui.form.on('Inventory Count', {
                         indicator: 'red'
                     });
                     initialized = false; // Reset initialized to allow future imports
+                    auto_updater(true); // Re-enable auto-update after import failure
                 }
             });
 
@@ -91,6 +147,7 @@ frappe.ui.form.on('Inventory Count', {
                 frappe.set_route('Form', 'Inventory Count Settings', {parent_name:cur_frm.doc.name});
             });
         }
+
 
         // --- Apply Coloring Logic on every refresh ---
         // Ensures physical items are colored based on quantity difference from expected.
@@ -109,7 +166,6 @@ frappe.ui.form.on('Inventory Count', {
                 frm.reload_doc();
             }
         });
-        console.log("test");
 
         const physicalItemsTable = 'inv_physical_items';
         const virtualItemsTable = 'inv_virtual_items';
@@ -298,6 +354,30 @@ frappe.ui.form.on('Inventory Count', {
         }, 300); // Small delay to ensure DOM is ready
     },
 
+    warehouse: function(frm) {
+        const selectedWarehouse = frm.doc.warehouse;
+        const bins_map = frm.__connectwise_bins_map; // Retrieve the stored map
+
+        let bin_options = [""]; // Start with an empty option
+
+        if (selectedWarehouse && bins_map && bins_map[selectedWarehouse]) {
+            // Get bins for the selected warehouse from the map
+            const binsForWarehouse = bins_map[selectedWarehouse];
+            if (Array.isArray(binsForWarehouse)) {
+                bin_options = bin_options.concat(binsForWarehouse);
+            } else {
+                // This case should ideally not happen if Python correctly handles single/list,
+                // but as a fallback, if it's not an array, treat it as empty.
+                console.warn("Expected an array for bins, but got:", binsForWarehouse);
+            }
+        }
+        
+        // Set options for the 'warehouse_bin' field
+        frm.set_df_property('warehouse_bin', 'options', bin_options);
+        frm.set_value('warehouse_bin', ''); // Clear current bin selection when warehouse changes
+        frm.refresh_field('warehouse_bin'); // Refresh the dropdown to show new options
+    },
+
     // --- Before Submit Logic ---
     // This logic ensures necessary checks are performed before the document is submitted.
     // It now uses a Promise to handle the asynchronous comparison check,
@@ -314,9 +394,10 @@ frappe.ui.form.on('Inventory Count', {
             frappe.show_alert({
                 message: __("Calcul des différences d'inventaire en cours..."),
                 indicator: 'blue'
-            });
+            }, 3);
 
             // Call the whitelisted Python wrapper to enqueue the comparison
+            auto_updater(false); // Disable auto-update during this operation
             frappe.call({
                 method: "inv_count.inventory_count.doctype.inventory_count.inventory_count.enqueue_compare_tables",
                 args: {
@@ -329,14 +410,7 @@ frappe.ui.form.on('Inventory Count', {
 
                         // Listen for job completion
                         frappe.realtime.on(`Compare Complete`, () => {
-                            frappe.show_alert({
-                                message: __("Comparaison des inventaires terminée."),
-                                indicator: 'green'
-                            });
-                            // CRITICAL: Reload the document to get the updated inv_difference table and timestamp
-                            frm.reload_doc().then(() => {
-                                frm.refresh_field('inv_difference'); // Ensure the grid is refreshed
-                                // Now, perform the confirmation check after the document is fully reloaded
+                            frm.reload_doc().then(() => {              
                                 checkAllDifferencesConfirmed(frm, resolve, reject);
                             }).catch(e => {
                                 reject();
@@ -344,9 +418,9 @@ frappe.ui.form.on('Inventory Count', {
                         });
 
                         // Listen for job failure
-                        frappe.realtime.on(`job_failed_${jobId}`, (data) => {
+                        frappe.realtime.on(`Compare Error`, (data) => {
                             frappe.msgprint({
-                                message: __('La comparaison des inventaires a échoué : ') + (data.exc || data.message),
+                                message: __('La comparaison des inventaires a échoué : ') + (data.message),
                                 title: __('Erreur'),
                                 indicator: 'red'
                             });
@@ -371,22 +445,86 @@ frappe.ui.form.on('Inventory Count', {
 function checkAllDifferencesConfirmed(frm, resolve, reject) {
     const invDifferenceTable = frm.doc.inv_difference;
     let allConfirmed = true;
+
+    // Iterate through the inventory difference table to check if all relevant rows are confirmed.
     for (let i = 0; i < invDifferenceTable.length; i++) {
         const row = invDifferenceTable[i];
-        // Only check for unconfirmed rows if there is an actual difference (qty > 0 or < 0)
-        // If difference_qty is 0, it means it was a discrepancy that got resolved and should not block submission.
-        if (!row.confirmed) {
+        // Only check for unconfirmed rows if there is an actual difference (qty > 0 or < 0).
+        // If difference_qty is 0, it means the discrepancy was resolved, and it should not block submission
+        // even if the 'confirmed' checkbox is not explicitly ticked for that row.
+        if (row.difference_qty !== 0 && !row.confirmed) { // Corrected logic: check difference_qty
             allConfirmed = false;
-            break;
+            break; // Exit the loop as soon as an unconfirmed difference is found.
         }
     }
+
+    // If not all relevant differences are confirmed, block the submission.
     if (!allConfirmed) {
-        // Ensure the inv_difference section is visible so the user can see the checkboxes
-        cur_frm.set_df_property('inv_difference', 'hidden', 0);
-        frappe.throw(__("Veuillez confirmer toutes les différences d'inventaire non résolues en cochant la case 'Confirmé' dans chaque ligne."));
-        reject(); // Prevent submission
+        // Ensure the inventory difference section is visible to the user.
+        frm.set_df_property('inventory_difference_section', 'hidden', false);
+        frappe.show_alert({
+                message: __("Veuillez Choisir un type d'ajustement et confirmer les différences d'inventaire."),
+                indicator: 'blue'
+            }, 5);
+  
+        // If the 'adjustment_type' field is empty, fetch ConnectWise adjustment types.
+        if (!frm.doc.adjustment_type) {
+            // Show a loading indicator during the API call.
+
+            frappe.call({
+                method: "inv_count.inventory_count.doctype.inventory_count.inventory_count.get_connectwise_type_adjustments",
+                args: {},
+            }).then(r => {
+                if (r.message) {
+                    const adjustmentTypes = r.message;
+                    console.log("ConnectWise Type Adjustments:", adjustmentTypes);
+                    frm.set_df_property('adjustment_type', 'options', [''].concat(adjustmentTypes));
+                    frm.set_df_property('adjustment_type', 'read_only', 0);
+                    frm.refresh_field('adjustment_type');
+                } else {
+                    console.error("Error fetching ConnectWise Type Adjustments:", r);
+                    frappe.msgprint(__('Failed to fetch ConnectWise Type Adjustments. Check logs for details.'));
+                }
+            }).catch(err => {
+                console.error("API Call Error:", err);
+                frappe.msgprint(__('An error occurred during the API call to fetch adjustment types.'));
+            }).finally(() => {
+                // Successfully fetched adjustment types
+            });
+        }
+        
+
+        // Explicitly reject the submission.
+        reject();
     } else {
-        resolve(); // Allow submission
+        // If all relevant differences are confirmed, prompt the user to push to ConnectWise.
+            frappe.show_alert({
+                message: __("Envoi des différences à ConnectWise en cours..."),
+                indicator: 'blue'
+            }, 5); // Affiche un message de chargement.
+            frappe.call({
+                method: 'inv_count.inventory_count.doctype.inventory_count.inventory_count.push_confirmed_differences_to_connectwise',
+                args: {
+                    doc_name: frm.doc.name
+                }
+            }).then(r => {
+                if (r.message && r.message.status === "success") {
+                    frappe.show_alert({
+                        message: r.message.message,
+                        indicator: 'blue'
+                    }, 10);
+                    frm.reload_doc().then(() => {
+                        resolve(); // Resolve the Promise to allow submission
+                    });
+                } else {
+                    frappe.msgprint(r.message.message || __('An unexpected response was received from the server.'), __('Error'), 'red');
+                    reject();
+                }
+            }).catch(err => {
+                console.error("API Call Error:", err);
+                frappe.msgprint(__('An error occurred during the ConnectWise push API call. Check browser console and Frappe logs for details.'), __('Network Error'), 'red');
+                reject();
+            });
     }
 }
 
@@ -428,5 +566,60 @@ function applyPhysicalItemsColoring(frm) {
                 }
             }
         });
+    }
+}
+
+function populateMainCategoryDropdown(frm) {
+    console.log("--- populateMainCategoryDropdown called ---");
+    const categories = new Set(); // Use a Set to store unique categories
+
+    // 1. Check if inv_virtual_items exists and has items
+    if (frm.doc.inv_virtual_items && frm.doc.inv_virtual_items.length > 0) {
+        console.log("Virtual items found. Number of items:", frm.doc.inv_virtual_items.length);
+        
+        frm.doc.inv_virtual_items.forEach((item, index) => {
+            // Log the entire item object to see all its fields and their names/values
+            console.log(`Processing item ${index}:`, item);
+            
+            // Log the specific 'category' field value
+            console.log(`Value of item.category for item ${index}:`, item.category);
+            console.log(`Type of item.category for item ${index}:`, typeof item.category);
+
+            // Ensure the category exists and is a string before adding
+            if (item.category && typeof item.category === 'string') {
+                categories.add(item.category);
+                console.log(`Added category: ${item.category}`);
+            } else {
+                console.warn(`Skipped item ${index} due to invalid or empty category. Value:`, item.category);
+            }
+        });
+        console.log("Categories collected (before sorting):", Array.from(categories));
+
+    } else {
+        console.warn("No virtual items found or frm.doc.inv_virtual_items is empty.");
+        console.warn("Current frm.doc.inv_virtual_items:", frm.doc.inv_virtual_items);
+    }
+
+    let category_options = [""]; // Start with an empty option to allow no selection
+    // Convert Set to Array, sort alphabetically, and concatenate with the empty option
+    const sortedCategories = Array.from(categories).sort();
+    category_options = category_options.concat(sortedCategories);
+    
+    // Set the options for the main 'category' field
+    frm.set_df_property('category', 'options', category_options);
+    frm.set_df_property('category', 'read_only', 0); // Make it editable
+    frm.refresh_field('category'); // Refresh the dropdown to show new options
+    console.log("Main Category dropdown populated with final options:", category_options);
+    console.log("--- populateMainCategoryDropdown finished ---");
+}
+
+function auto_updater(bool) {
+    if (bool) {
+        // Logic for automatic updates
+        console.log("Automatic updates are enabled.");
+        auto_update = true;
+    } else {
+        console.log("Automatic updates are disabled.");
+        auto_update = false;
     }
 }

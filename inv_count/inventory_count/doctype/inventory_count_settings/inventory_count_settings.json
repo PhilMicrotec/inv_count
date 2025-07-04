@@ -5,11 +5,17 @@
  "doctype": "DocType",
  "engine": "InnoDB",
  "field_order": [
-  "debug_mode",
+  "connectwise_settings_section",
+  "column_break_kahq",
+  "connectwise_company_id",
+  "connectwise_api_url",
   "connectwise_public_key",
   "connectwise_private_key",
   "connectwise_client_id",
+  "column_break_qhxv",
   "qty_calculation_type",
+  "developper_settings_section",
+  "debug_mode",
   "import_settings_section",
   "import_source_type",
   "csv_settings_column",
@@ -41,7 +47,7 @@
    "fieldtype": "Select",
    "in_list_view": 1,
    "label": "Import Source Type",
-   "options": "\nCSV\nSQL Database",
+   "options": "CSV\nSQL Database",
    "reqd": 1
   },
   {
@@ -101,33 +107,68 @@
    "options": "SQL"
   },
   {
-   "default": "QOH+PickedNotShipped+PickedNotInvoiced",
+   "default": "QOH+PickedNotInvoiced",
    "fieldname": "qty_calculation_type",
    "fieldtype": "Select",
    "label": "Qty Calculation",
-   "options": "QOH\nQOH+PickedNotShipped\nQOH+PickedNotInvoiced\nQOH+PickedNotShipped+PickedNotInvoiced"
+   "options": "QOH\nQOH+PickedNotShipped\nQOH+PickedNotInvoiced\nQOH+PickedNotShipped+PickedNotInvoiced",
+   "reqd": 1
   },
   {
    "fieldname": "connectwise_public_key",
    "fieldtype": "Data",
-   "label": "Connectwise Public Key"
+   "label": "Connectwise Public Key",
+   "reqd": 1
   },
   {
    "fieldname": "connectwise_private_key",
-   "fieldtype": "Data",
-   "label": "Connectwise Private Key"
+   "fieldtype": "Password",
+   "label": "Connectwise Private Key",
+   "reqd": 1
   },
   {
    "fieldname": "connectwise_client_id",
    "fieldtype": "Data",
-   "label": "Connectwise Client ID"
+   "label": "Connectwise Client ID",
+   "reqd": 1
+  },
+  {
+   "fieldname": "column_break_qhxv",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "connectwise_company_id",
+   "fieldtype": "Data",
+   "label": "Connectwise Company ID",
+   "reqd": 1
+  },
+  {
+   "default": "https://na.myconnectwise.net/v4_6_release/apis/3.0",
+   "fieldname": "connectwise_api_url",
+   "fieldtype": "Data",
+   "label": "Connectwise API URL",
+   "reqd": 1
+  },
+  {
+   "fieldname": "column_break_kahq",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "developper_settings_section",
+   "fieldtype": "Section Break",
+   "label": "Developper Settings"
+  },
+  {
+   "fieldname": "connectwise_settings_section",
+   "fieldtype": "Section Break",
+   "label": "Connectwise Settings"
   }
  ],
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "issingle": 1,
  "links": [],
- "modified": "2025-06-13 13:41:00.905970",
+ "modified": "2025-06-20 14:21:28.741979",
  "modified_by": "Administrator",
  "module": "Inventory Count",
  "name": "Inventory Count Settings",
