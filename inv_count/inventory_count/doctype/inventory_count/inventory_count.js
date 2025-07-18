@@ -71,7 +71,7 @@ frappe.ui.form.on('Inventory Count', {
  
         if (!frm.doc.__islocal && frm.doc.inv_virtual_items.length === 0 && !initialized) {
             initialized = true; // Set initialized to true to prevent multiple calls
-            auto_updater(false); // Disable auto-update during initial import
+            python_request_in_progress(true); // Disable auto-update during initial import
             frappe.show_alert({
                 message: __("L'importation de l'inventaire virtuel a démarré en arrière-plan. Cela peut prendre un certain temps."),
                 indicator: 'blue'
@@ -99,7 +99,7 @@ frappe.ui.form.on('Inventory Count', {
                             frm.reload_doc().then(() => {
                                 // Then, populate the categories using the fresh data
                                 populateMainCategoryDropdown(frm);
-                                auto_updater(true); // Re-enable auto-update after import
+                                python_request_in_progress(false); // Re-enable auto-update after import
                             });
                         });
 
@@ -111,7 +111,7 @@ frappe.ui.form.on('Inventory Count', {
                                 indicator: 'red'
                             });
                             initialized = false; // Reset initialized to allow future imports
-                            auto_updater(true); // Re-enable auto-update after import failure
+                            python_request_in_progress(false); // Re-enable auto-update after import failure
                             console.error("Import job failed:", data);
                         });
 
@@ -123,7 +123,7 @@ frappe.ui.form.on('Inventory Count', {
                             indicator: 'red'
                         });
                         initialized = false; // Reset initialized to allow future imports
-                        auto_updater(true); // Re-enable auto-update after import failure
+                        python_request_in_progress(false); // Re-enable auto-update after import failure
                     }
                 },
                 error: function(err) {
@@ -134,7 +134,7 @@ frappe.ui.form.on('Inventory Count', {
                         indicator: 'red'
                     });
                     initialized = false; // Reset initialized to allow future imports
-                    auto_updater(true); // Re-enable auto-update after import failure
+                    python_request_in_progress(false); // Re-enable auto-update after import failure
                 }
             });
 
@@ -391,52 +391,67 @@ frappe.ui.form.on('Inventory Count', {
 
         // Return a Promise to make before_submit asynchronous
         return new Promise((resolve, reject) => {
-            frappe.show_alert({
-                message: __("Calcul des différences d'inventaire en cours..."),
-                indicator: 'blue'
-            }, 3);
 
+            if (frm.__is_connectwise_push_in_progress) {
+                console.log("ConnectWise push already in progress for this submission. Preventing duplicate call.");
+                // If it's already in progress, we might want to resolve or reject based on desired behavior.
+                // For preventing duplicates, resolving immediately is often best if you assume the first call will complete.
+                resolve();
+                return; // Exit to prevent re-triggering the call
+            }
+
+            frm.__is_connectwise_push_in_progress = true;
+
+            
             // Call the whitelisted Python wrapper to enqueue the comparison
-            auto_updater(false); // Disable auto-update during this operation
-            frappe.call({
-                method: "inv_count.inventory_count.doctype.inventory_count.inventory_count.enqueue_compare_tables",
-                args: {
-                    doc_name: frm.doc.name
-                },
-                callback: function(r) {
-                    if (r.message && r.message.job_id) {
-                        const jobId = r.message.job_id;
-                        console.log("Comparison job enqueued with ID:", jobId);
+             // Disable auto-update during this operation
+            if (auto_update) {
+                python_request_in_progress(true); // Set the flag to indicate a Python request is in progress
+                frappe.call({
+                    method: "inv_count.inventory_count.doctype.inventory_count.inventory_count.enqueue_compare_tables",
+                    args: {
+                        doc_name: frm.doc.name
+                    },
+                    callback: function(r) {
+                        if (r.message && r.message.job_id) {
+                            const jobId = r.message.job_id;
+                            console.log("Comparison job enqueued with ID:", jobId);
 
-                        // Listen for job completion
-                        frappe.realtime.on(`Compare Complete`, () => {
-                            frm.reload_doc().then(() => {              
-                                checkAllDifferencesConfirmed(frm, resolve, reject);
-                            }).catch(e => {
+                            // Listen for job completion
+                            frappe.realtime.on(`Compare Complete`, () => {
+                                frm.reload_doc().then(() => {     
+                                    python_request_in_progress(false); // Reset the flag after sucessful
+                                    checkAllDifferencesConfirmed(frm, resolve, reject);
+                                }).catch(e => {
+                                    python_request_in_progress(false); // Reset the flag on error
+                                    reject();
+                                });
+                            });
+
+                            // Listen for job failure
+                            frappe.realtime.on(`Compare Error`, (data) => {
+                                frappe.msgprint({
+                                    message: __('La comparaison des inventaires a échoué : ') + (data.message),
+                                    title: __('Erreur'),
+                                    indicator: 'red'
+                                });
+                                python_request_in_progress(false); // Reset the flag on error
                                 reject();
                             });
-                        });
 
-                        // Listen for job failure
-                        frappe.realtime.on(`Compare Error`, (data) => {
-                            frappe.msgprint({
-                                message: __('La comparaison des inventaires a échoué : ') + (data.message),
-                                title: __('Erreur'),
-                                indicator: 'red'
-                            });
+                        } else {
+                            frappe.msgprint(__("Échec de la mise en file d'attente de la tâche de comparaison."));
+                            python_request_in_progress(false); // Reset the flag on error
                             reject();
-                        });
-
-                    } else {
-                        frappe.msgprint(__("Échec de la mise en file d'attente de la tâche de comparaison."));
+                        }
+                    },
+                    error: function(err) {
+                        frappe.msgprint(__("Erreur de communication lors de la mise en file d'attente de la comparaison : ") + err.message);
+                        python_request_in_progress(false); // Reset the flag on error
                         reject();
                     }
-                },
-                error: function(err) {
-                    frappe.msgprint(__("Erreur de communication lors de la mise en file d'attente de la comparaison : ") + err.message);
-                    reject();
-                }
-            });
+                });
+            }
         });
     }
 });
@@ -459,7 +474,7 @@ function checkAllDifferencesConfirmed(frm, resolve, reject) {
     }
 
     // If not all relevant differences are confirmed, block the submission.
-    if (!allConfirmed) {
+    if (!allConfirmed || frm.doc.adjustment_type === '' || frm.doc.reason === '') {
         // Ensure the inventory difference section is visible to the user.
         frm.set_df_property('inventory_difference_section', 'hidden', false);
         frappe.show_alert({
@@ -498,33 +513,42 @@ function checkAllDifferencesConfirmed(frm, resolve, reject) {
         reject();
     } else {
         // If all relevant differences are confirmed, prompt the user to push to ConnectWise.
-            frappe.show_alert({
-                message: __("Envoi des différences à ConnectWise en cours..."),
-                indicator: 'blue'
-            }, 5); // Affiche un message de chargement.
-            frappe.call({
-                method: 'inv_count.inventory_count.doctype.inventory_count.inventory_count.push_confirmed_differences_to_connectwise',
-                args: {
-                    doc_name: frm.doc.name
-                }
-            }).then(r => {
-                if (r.message && r.message.status === "success") {
-                    frappe.show_alert({
-                        message: r.message.message,
-                        indicator: 'blue'
-                    }, 10);
-                    frm.reload_doc().then(() => {
-                        resolve(); // Resolve the Promise to allow submission
-                    });
-                } else {
-                    frappe.msgprint(r.message.message || __('An unexpected response was received from the server.'), __('Error'), 'red');
+            if (debug_mode) console.log("All differences confirmed. Proceeding to push to ConnectWise.");
+            if (auto_update) {
+                python_request_in_progress(true); // Disable auto-update during the API call
+                frappe.call({
+                    method: 'inv_count.inventory_count.doctype.inventory_count.inventory_count.push_confirmed_differences_to_connectwise',
+                    args: {
+                        doc_name: frm.doc.name
+                    }
+                }).then(r => {
+                    if (r.message && r.message.status === "success") {
+                        frappe.show_alert({
+                            message: r.message.message,
+                            indicator: 'blue'
+                        }, 10);
+                        frm.reload_doc().then(() => {
+                            resolve(); // Resolve the Promise to allow submission
+                            if (debug_mode) console.log("Push to ConnectWise successful, form reloaded.");
+                        });
+                    } else {
+                        frappe.show_alert({
+                            message: r.message.message || __('An unexpected response was received from the server.'),
+                            title: __('Error'),
+                            indicator: 'red'
+                        }, 10);
+                        reject();
+                        python_request_in_progress(false); // Re-enable auto-update even if the API call fails
+                    }
+                }).catch(err => {
+                    console.error("API Call Error:", err);
+                    frappe.msgprint(__('An error occurred during the ConnectWise push API call. Check browser console and Frappe logs for details.'), __('Network Error'), 'red');
                     reject();
-                }
-            }).catch(err => {
-                console.error("API Call Error:", err);
-                frappe.msgprint(__('An error occurred during the ConnectWise push API call. Check browser console and Frappe logs for details.'), __('Network Error'), 'red');
-                reject();
-            });
+                    python_request_in_progress(false); // Re-enable auto-update even if the API call fails
+                });
+            } else {
+                if (debug_mode) console.log("Auto-update is disabled. Please reload the page");
+            }
     }
 }
 
@@ -578,17 +602,9 @@ function populateMainCategoryDropdown(frm) {
         console.log("Virtual items found. Number of items:", frm.doc.inv_virtual_items.length);
         
         frm.doc.inv_virtual_items.forEach((item, index) => {
-            // Log the entire item object to see all its fields and their names/values
-            console.log(`Processing item ${index}:`, item);
-            
-            // Log the specific 'category' field value
-            console.log(`Value of item.category for item ${index}:`, item.category);
-            console.log(`Type of item.category for item ${index}:`, typeof item.category);
-
             // Ensure the category exists and is a string before adding
             if (item.category && typeof item.category === 'string') {
                 categories.add(item.category);
-                console.log(`Added category: ${item.category}`);
             } else {
                 console.warn(`Skipped item ${index} due to invalid or empty category. Value:`, item.category);
             }
@@ -613,13 +629,12 @@ function populateMainCategoryDropdown(frm) {
     console.log("--- populateMainCategoryDropdown finished ---");
 }
 
-function auto_updater(bool) {
+function python_request_in_progress(bool) {
     if (bool) {
-        // Logic for automatic updates
-        console.log("Automatic updates are enabled.");
-        auto_update = true;
-    } else {
-        console.log("Automatic updates are disabled.");
+        if (debug_mode) console.log("Automatic updates are disable, python request in progress.");
         auto_update = false;
+    } else {
+        if (debug_mode) console.log("Automatic updates are enabled, python request completed.");
+        auto_update = true;
     }
 }

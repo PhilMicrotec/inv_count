@@ -230,6 +230,10 @@ def compare_child_tables(doc_name):
             row.get("code"): row.get("description")
             for row in physical_items_to_compare
         }
+        virtual_item_bin_map = {
+            row.get("item_id"): row.get("bin")
+            for row in all_virtual_items if row.get("item_id")
+        }
 
         # Keep track of item_codes that were updated/created in inv_difference
         processed_difference_items = set()
@@ -243,6 +247,8 @@ def compare_child_tables(doc_name):
             virtual_qty_int = virtual_items_map.get(item_code, 0) # Will be 0 if not found in virtual_items_to_compare
 
             difference = physical_qty_int - virtual_qty_int
+
+            bin_from_virtual = virtual_item_bin_map.get(item_code, "")
             
             if difference != 0:
                 # Try to find an existing row in inv_difference for this item_code
@@ -260,7 +266,7 @@ def compare_child_tables(doc_name):
                     existing_row.virtual_qty = virtual_qty_int
                     existing_row.difference_qty = difference
                     existing_row.difference_reason = _("Quantité différente") if item_code in virtual_items_map else _("Article non trouvé dans l'inventaire virtuel")
-                    # existing_row.confirmed is implicitly preserved because we don't overwrite it
+                    existing_row.bin = bin_from_virtual
                 else:
                     # Create new row
                     new_diff_item = doc.append("inv_difference", {})
@@ -270,8 +276,8 @@ def compare_child_tables(doc_name):
                     new_diff_item.virtual_qty = virtual_qty_int
                     new_diff_item.difference_qty = difference
                     new_diff_item.difference_reason = _("Quantité différente") if item_code in virtual_items_map else _("Article non trouvé dans l'inventaire virtuel")
-                    new_diff_item.confirmed = existing_confirmed_status_map.get(item_code, 0) 
-
+                    new_diff_item.confirmed = existing_confirmed_status_map.get(item_code, 0)
+                    new_diff_item.bin = bin_from_virtual
 
                 processed_difference_items.add(item_code)
 
@@ -282,6 +288,8 @@ def compare_child_tables(doc_name):
 
             description_virtual = description_virtual_item_map.get(item_code, "")
             difference = 0 - virtual_qty_int # Item found in virtual but not in physical (in this comparison scope)
+
+            bin_from_virtual = virtual_item_bin_map.get(item_code, "")
 
             # Always iterate to find existing row now, as we don't clear the table
             existing_row = None
@@ -297,6 +305,7 @@ def compare_child_tables(doc_name):
                 existing_row.virtual_qty = virtual_qty_int
                 existing_row.difference_qty = difference
                 existing_row.difference_reason = _("Article non trouvé dans l'inventaire physique")
+                existing_row.bin = bin_from_virtual
                 # existing_row.confirmed is implicitly preserved here
             else:
                 # Create new row
@@ -307,16 +316,13 @@ def compare_child_tables(doc_name):
                 new_diff_item.virtual_qty = virtual_qty_int
                 new_diff_item.difference_qty = difference
                 new_diff_item.difference_reason = _("Article non trouvé dans l'inventaire physique")
-                # --- MODIFICATION START ---
-                # Set confirmed status from map or default to 0
                 new_diff_item.confirmed = existing_confirmed_status_map.get(item_code, 0)
-                # --- MODIFICATION END ---
+                new_diff_item.bin = bin_from_virtual
+                
 
             processed_difference_items.add(item_code)
 
-        # --- MODIFICATION START ---
-        # Removal logic: Now correctly removes items no longer identified as differences.
-        # This unified removal works for both filtered and unfiltered states.
+        # --- Clean up inv_difference table: remove items that are no longer differences ---
         items_to_remove = []
         for i in range(len(doc.get("inv_difference")) - 1, -1, -1):
             row = doc.get("inv_difference")[i]
@@ -536,14 +542,16 @@ def get_connectwise_warehouses_and_bins():
 def push_confirmed_differences_to_connectwise(doc_name):
     """
     Pushes all 'confirmed' items from the 'inv_difference' child table
-    of an 'Inventory Count' document to the ConnectWise API as Inventory Adjustments.
+    of an 'Inventory Count' document to the ConnectWise API as a single Inventory Adjustment
+    with multiple adjustment details.
 
-    It dynamically resolves the ConnectWise Warehouse ID based on the Frappe Warehouse name
-    from the 'Inventory Count' document.
-    The 'adjustment_type' and 'type' fields are also taken from the main 'Inventory Count' document.
+    The 'adjustment_type' and 'reason' fields are taken from the main 'Inventory Count' document.
+    Note: This version does NOT include Warehouse ID or Warehouse Bin ID in the adjustment details payload.
+    Please verify ConnectWise API requirements for these fields.
     """
     try:
         doc = frappe.get_doc("Inventory Count", doc_name)
+        
         # --- Retrieve ConnectWise API Credentials from Inventory Count Settings ---
         settings_doc = frappe.get_single('Inventory Count Settings')
 
@@ -565,7 +573,7 @@ def push_confirmed_differences_to_connectwise(doc_name):
 
         # --- Construct ConnectWise API Headers ---
         headers = {
-            "Accept": "application/vnd.connectwise.com+json; version=2019.1",
+            "Accept": "application/vnd.connectwise.com+json; version=2019.1", # Consider updating API version if ConnectWise has newer ones
             "Content-Type": "application/json",
             "Authorization": f"Basic {encoded_credentials}",
             "clientId": client_id
@@ -574,13 +582,12 @@ def push_confirmed_differences_to_connectwise(doc_name):
 
         
         # --- Retrieve relevant fields directly from the Inventory Count document (doc) ---
-        frappe_warehouse_name = doc.warehouse 
-        cw_adjustment_type_name_for_item = doc.adjustment_type #Correction type
-        inventory_count_type = doc.type # e.g., "Annuel", "Mensuel", "Autre"
+        warehouse_name = doc.warehouse # Still used for logging/context, but not sent in CW payload
+        cw_adjustment_type_name_for_item = doc.adjustment_type # Correction type name from Frappe
         reason = doc.reason # This is a free text field for the reason of the inventory count
 
         # --- Validate mandatory fields from the Inventory Count document ---
-        if not frappe_warehouse_name:
+        if not warehouse_name:
             frappe.throw(_("Warehouse is not set in the Inventory Count document. Cannot proceed with ConnectWise push."),
                          title=_("Missing Warehouse"))
         
@@ -593,144 +600,45 @@ def push_confirmed_differences_to_connectwise(doc_name):
         if not confirmed_items_to_push:
             frappe.msgprint(_("No confirmed inventory differences found to push to ConnectWise (or quantities match)."), title=_("No Items"), indicator='blue')
             return {"status": "success", "message": _("No items to push.")}
-
-        frappe.msgprint(_(f"Attempting to push {len(confirmed_items_to_push)} confirmed differences to ConnectWise..."), title=_("Pushing to ConnectWise"), indicator='blue')
         
-        pushed_count = 0
         failed_pushes = []
+        adjustment_details_list = [] # This will hold all individual item adjustments
 
         # --- ConnectWise API Endpoints ---
-        products_api_endpoint = f"{connectwise_api_url}/procurement/products"
         adjustments_api_endpoint = f"{connectwise_api_url}/procurement/adjustments"
-        # New: Endpoint to search for ConnectWise warehouses by name
-        warehouses_api_endpoint = f"{connectwise_api_url}/procurement/warehouses"
-        # New: Endpoint to search for ConnectWise adjustment types
-        adjustment_types_api_endpoint = f"{connectwise_api_url}/procurement/adjustments/types" # ADDED
 
-        # --- Resolve ConnectWise Warehouse ID from Frappe Warehouse Name (one-time call per doc) ---
-        connectwise_warehouse_id = None
-        try:
-            warehouse_search_params = {"conditions": f"name='{frappe_warehouse_name}'"}
-            warehouse_response = requests.get(warehouses_api_endpoint, headers=headers, params=warehouse_search_params, timeout=10)
-            warehouse_response.raise_for_status() # Raise an HTTPError for bad responses (4xx or 5xx)
-            warehouse_results = warehouse_response.json()
-
-            if warehouse_results and len(warehouse_results) > 0:
-                connectwise_warehouse_id = warehouse_results[0].get("id")
-                #frappe.msgprint(f"Mapped Frappe Warehouse '{frappe_warehouse_name}' to ConnectWise Warehouse ID: {connectwise_warehouse_id}", title=_("Warehouse Mapped"))
-            else:
-                # If warehouse not found, raise an error and stop the process for this document
-                frappe.throw(
-                    _("Frappe Warehouse '{0}' not found in ConnectWise. Please ensure a corresponding warehouse exists in ConnectWise or check the warehouse name.").format(frappe_warehouse_name),
-                    title=_("ConnectWise Warehouse Not Found")
-                )
-        except requests.exceptions.RequestException as e:
-            # Catch network or API errors during warehouse lookup
-            frappe.throw(
-                _("Failed to retrieve ConnectWise Warehouse ID for '{0}' due to API error: {1}").format(frappe_warehouse_name, e),
-                title=_("ConnectWise API Error (Warehouse Lookup)")
-            )
-        # --- End Resolve ConnectWise Warehouse ID ---
-
-        # --- Resolve ConnectWise Adjustment Type ID from Frappe Adjustment Type Name --- ADDED START
-        # Cache to avoid repeated API calls if multiple items use the same adjustment type
-        connectwise_adjustment_type_ids = {}
-
-        def get_connectwise_adjustment_type_id(type_name):
-            if type_name in connectwise_adjustment_type_ids:
-                return connectwise_adjustment_type_ids[type_name]
-
-            type_id = None
-            try:
-                # Use "name" for filtering, as this aligns with your Frappe 'adjustment_type' field
-                type_search_params = {"conditions": f"name='{type_name}'"} 
-                type_response = requests.get(adjustment_types_api_endpoint, headers=headers, params=type_search_params, timeout=10)
-                type_response.raise_for_status()
-                type_results = type_response.json()
-
-                if type_results and len(type_results) > 0:
-                    type_id = type_results[0].get("id")
-                    connectwise_adjustment_type_ids[type_name] = type_id # Cache the ID
-                else:
-                    frappe.log_error(f"ConnectWise Adjustment Type '{type_name}' not found. Cannot set adjustment type for item.", "ConnectWise Type Not Found")
-            except requests.exceptions.RequestException as e:
-                frappe.log_error(f"Failed to retrieve ConnectWise Adjustment Type ID for '{type_name}' due to API error: {e}", "ConnectWise API Error (Type Lookup)")
-            return type_id
-        # --- End Resolve ConnectWise Adjustment Type ID --- ADDED END
         
         for item in confirmed_items_to_push:
-            item_code = item.item_code
-            cw_product_id = None
-            
             difference_qty = item.physical_qty - item.virtual_qty
+            
 
             if difference_qty == 0:
-                frappe.msgprint(f"Skipping '{item_code}' as there is no quantity difference.", title=_("Skipped"))
+                frappe.msgprint(f"Skipping '{item.item_code}' as there is no quantity difference.", title=_("Skipped"))
                 continue
 
-            try:
-                # Step 1: Find the product in ConnectWise
-                search_params = {"childCconditions": f"identifier='{item_code}'"}
-                search_response = requests.get(products_api_endpoint, headers=headers, params=search_params, timeout=10)
-                search_response.raise_for_status()
-
-                search_results = search_response.json()
-                
-                if search_results and len(search_results) > 0:
-                    cw_product_id = search_results[0].get("id")
-                    # frappe.msgprint(f"Found existing product '{item_code}' with ConnectWise ID: {cw_product_id}", title=_("ConnectWise Product Found"))
-                else:
-                    error_detail = f"Product '{item_code}' not found in ConnectWise. Cannot create adjustment."
-                    frappe.log_error(error_detail, "ConnectWise Product Not Found")
-                    failed_pushes.append(f"'{item_code}': {error_detail}")
-                    continue        
-                
-                # Get the ConnectWise Adjustment Type ID # ADDED START
-                cw_adjustment_type_id = get_connectwise_adjustment_type_id(cw_adjustment_type_name_for_item)
-
-                if cw_adjustment_type_id is None:
-                    error_detail = f"ConnectWise adjustment type '{cw_adjustment_type_name_for_item}' not found or could not be retrieved for item '{item_code}'. Cannot create adjustment."
-                    frappe.log_error(error_detail, "ConnectWise Adjustment Type ID Missing")
-                    failed_pushes.append(f"'{item_code}': {error_detail}")
-                    continue
-                # ADDED END
-
-                # IMPORTANT: Ensure the value from `main_doc_adjustment_type` matches
-                # a valid `adjustmentType` enum value for the ConnectWise API.
-
-                # Prepare payload for creating an inventory adjustment
-                adjustment_payload = {
-                    "identifier":  reason,
-                    "type": {
-                        "id": cw_adjustment_type_id, # Use the resolved ConnectWise Adjustment Type ID
-                        "identifier": cw_adjustment_type_name_for_item, # Use the Frappe adjustment type name
-                        "_info": {"type_href": adjustment_types_api_endpoint + f"/{cw_adjustment_type_id}"}
+            try:           
+                # Construct individual adjustment detail
+                adjustment_detail = {
+                    'catalogItem': { # Reference to the ConnectWise product
+                        'identifier': item.item_code
                     },
-                    "reason": reason, # Use the reason from the Inventory Count document
+                    'description': item.description, # Using item_name from Frappe as description
+                    'quantityAdjusted': difference_qty, # Use the actual difference, can be negative
+                    'warehouse': { 
+                        'name': warehouse_name
+                    },
+                    'warehouseBin': {
+                        'name': item.bin
+                    }
                 }
-
-
-                # Step 2: Create new inventory adjustment using POST
-                #response = requests.post(adjustments_api_endpoint, headers=headers, data=json.dumps(adjustment_payload), timeout=30) # CHANGED TO POST
-                # response = requests.get(adjustments_api_endpoint, headers=headers, timeout=30) # ORIGINAL LINE COMMENTED OUT
-                #response.raise_for_status()
-                # print(response.json()) # Keep for debugging if needed
-
-                #frappe.log_error(f"Created adjustment for item '{item_code}' with type '{cw_adjustment_type_for_item}' in ConnectWise. Response: {response.json()}", "ConnectWise Adjustment Success")
-                frappe.log_error(f"Created adjustment for item '{item_code}' with type '{cw_adjustment_type_name_for_item}' in ConnectWise. Response: {response.json()}", "ConnectWise Adjustment Success") # MODIFIED LOG MESSAGE
-                pushed_count += 1
-
-                # If you have a 'pushed_to_connectwise' Check field in your Inv_difference DocType,
-                # uncomment the line below to mark the item as pushed.
-                if hasattr(item, 'pushed_to_connectwise'):
-                    item.db_set('pushed_to_connectwise', 1) 
+                adjustment_details_list.append(adjustment_detail)
 
             except requests.exceptions.Timeout:
-                error_detail = f"Request to ConnectWise timed out for item '{item_code}'."
-                frappe.log_error(error_detail, "ConnectWise Push Timeout Error")
-                failed_pushes.append(f"'{item_code}': {error_detail}")
+                error_detail = f"Request to ConnectWise timed out for item '{item.item_code}' during product lookup."
+                frappe.log_error(error_detail, "ConnectWise Product Lookup Timeout Error")
+                failed_pushes.append(f"'{item.item_code}': {error_detail}")
             except requests.exceptions.RequestException as req_err:
-                error_detail = f"Failed to push '{item_code}': {req_err}"
+                error_detail = f"Failed to find product '{item.item_code}' due to API error: {req_err}"
                 if hasattr(req_err, 'response') and req_err.response is not None:
                     try:
                         cw_error = req_err.response.json()
@@ -738,33 +646,78 @@ def push_confirmed_differences_to_connectwise(doc_name):
                         error_detail += f" - CW Error: {error_message} (Status: {req_err.response.status_code})"
                     except json.JSONDecodeError:
                         error_detail += f" - CW Raw Response: {req_err.response.text}"
-                frappe.log_error(error_detail, "ConnectWise Push Request Error")
-                failed_pushes.append(f"'{item_code}': {error_detail}")
+                frappe.log_error(error_detail, "ConnectWise Product Lookup Request Error")
+                failed_pushes.append(f"'{item.item_code}': {error_detail}")
             except Exception as item_err:
-                error_detail = f"An unexpected error occurred for '{item_code}': {item_err}"
-                frappe.log_error(error_detail, "ConnectWise Push Generic Error")
-                failed_pushes.append(f"'{item_code}': {error_detail}")
+                error_detail = f"An unexpected error occurred during processing of '{item.item_code}': {item_err}"
+                frappe.log_error(error_detail, "ConnectWise Detail Creation Generic Error")
+                failed_pushes.append(f"'{item.item_code}': {error_detail}")
 
-        # Save the Frappe doc if any child table items were modified (e.g., pushed_to_connectwise flag)
-        doc.save() 
-        frappe.db.commit() # Ensure changes are persisted in the database
+        if not adjustment_details_list:
+            frappe.msgprint(_("No valid inventory differences could be prepared for ConnectWise push."), title=_("No Details to Push"), indicator='orange')
+            return {"status": "success", "message": _("No valid items to push after filtering and lookup.")}
 
-        if pushed_count > 0:
-            frappe.msgprint(_(f"Successfully pushed {pushed_count} confirmed adjustments to ConnectWise."), title=_("ConnectWise Push Complete"), indicator='green')
+        # --- Prepare the main adjustment payload with all details ---
+        main_adjustment_payload = {
+            'identifier': reason, # Using reason as identifier for the main adjustment
+            'type': {
+                'identifier': cw_adjustment_type_name_for_item,
+            },
+            'reason': reason, # Reason for the overall adjustment
+            'adjustmentDetails': adjustment_details_list # Array of all individual item adjustments
+        }
+
+        pushed_count = 0 # This will now be 1 if the main push succeeds, 0 otherwise
+        try:
+            # Step 2: Create the single inventory adjustment with all details using POST
+            #response = requests.post(adjustments_api_endpoint, headers=headers, data=json.dumps(main_adjustment_payload), timeout=60) # Increased timeout for larger payloads
+            #response.raise_for_status() 
+            print(json.dumps(main_adjustment_payload))
+
+
+            # If the main POST succeeds, all items in the list are considered pushed
+            pushed_count = len(adjustment_details_list)
+
+            # Mark all successfully pushed items as pushed in Frappe
+            for item in confirmed_items_to_push:
+                if hasattr(item, 'pushed_to_connectwise'):
+                    item.db_set('pushed_to_connectwise', 1) 
+            
+            return {"status": "success", "message": _(f"ConnectWise push process finished. {pushed_count} adjustments pushed successfully, {len(failed_pushes)} failed.")}
+
+        except requests.exceptions.Timeout:
+            error_detail = f"Consolidated request to ConnectWise timed out after preparing {len(adjustment_details_list)} items."
+            frappe.log_error(error_detail, "ConnectWise Consolidated Push Timeout Error")
+            failed_pushes.append(f"Consolidated Push: {error_detail}")
+            print(error_detail) # Print to console for immediate visibility during dev
+            return {"status": "error", "message": error_detail}
+        except requests.exceptions.RequestException as req_err:
+            error_detail = f"Failed to push consolidated adjustment: {req_err}"
+            if hasattr(req_err, 'response') and req_err.response is not None:
+                try:
+                    cw_error = req_err.response.json()
+                    error_message = cw_error.get('message', str(cw_error))
+                    error_detail += f" - CW Error: {error_message} (Status: {req_err.response.status_code})"
+                except json.JSONDecodeError:
+                    error_detail += f" - CW Raw Response: {req_err.response.text}"
+            frappe.log_error(error_detail, "ConnectWise Consolidated Push Request Error")
+            failed_pushes.append(f"Consolidated Push: {error_detail}")
+            print(error_detail) # Print to console for immediate visibility during dev
+            return {"status": "error", "message": error_detail}
+        except Exception as push_err:
+            error_detail = f"An unexpected error occurred during consolidated push: {push_err}"
+            frappe.log_error(error_detail, "ConnectWise Consolidated Push Generic Error")
+            failed_pushes.append(f"Consolidated Push: {error_detail}")
+            print(error_detail) # Print to console for immediate visibility during dev
+            return {"status": "error", "message": error_detail}
+
         
-        if failed_pushes:
-            frappe.msgprint(_(f"Failed to push {len(failed_pushes)} items to ConnectWise. See Frappe Error Log for details."), title=_("ConnectWise Push Failures"), indicator='orange')
-            for fail_msg in failed_pushes:
-                frappe.msgprint(f"- {fail_msg}", indicator='red', alert=True) # Display individual failure messages in UI
-        
-        return {"status": "success", "message": _(f"ConnectWise push process finished. {pushed_count} adjustments pushed successfully, {len(failed_pushes)} failed.")}
     
     except frappe.exceptions.ValidationError:
-        # Catch specific Frappe errors (like the one thrown for missing credentials or warehouse not found)
-        frappe.db.rollback() # Rollback any partial changes
+        frappe.db.rollback() 
         return {"status": "error", "message": "ConnectWise push process stopped due to a configuration or data error. Check messages for details."}
     except Exception as e:
-        frappe.db.rollback() # Rollback changes in case of any other unhandled error
+        frappe.db.rollback() 
         error_trace = traceback.format_exc()
         frappe.log_error(error_trace, "Critical Error in push_confirmed_differences_to_connectwise function")
         frappe.msgprint(_(f"An unexpected critical error occurred during the ConnectWise push process: {e}"), title=_("ConnectWise Push Error"), indicator='red')
