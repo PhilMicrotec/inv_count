@@ -196,8 +196,6 @@ def compare_child_tables(doc_name):
 
         # Decide which items to compare based on the category filter
         if main_category_filter:
-            frappe.msgprint(_(f"Comparing only items in category: <b>{main_category_filter}</b>"), title=_("Comparison Filter Active"), indicator='blue')
-            
             # Filter virtual items by the selected category
             virtual_items_to_compare = [
                 item for item in all_virtual_items if item.category == main_category_filter
@@ -209,7 +207,6 @@ def compare_child_tables(doc_name):
             physical_items_to_compare = all_physical_items 
 
         else:
-            frappe.msgprint(_("Comparing all items (no category filter selected)."), title=_("Comparison Filter Inactive"), indicator='blue')
             physical_items_to_compare = all_physical_items
             virtual_items_to_compare = all_virtual_items
 
@@ -353,7 +350,6 @@ def compare_child_tables(doc_name):
         frappe.db.commit() # Ensure changes are persisted in the database
 
         frappe.publish_realtime("Compare Complete")
-        frappe.msgprint(_("Comparaison des inventaires terminée avec succès."), title=_("Success"), indicator='green')
         return {"status": "success", "message": _("Comparaison des inventaires terminée avec succès.")}
 
     except Exception as e:
@@ -380,30 +376,6 @@ def enqueue_import_data(inventory_count_name):
     )
     # IMPORTANT: Return a dictionary containing the job's ID (which is a string, hence JSON serializable)
     return {'job_id': job.id}
-
-
-@frappe.whitelist()
-def enqueue_compare_tables(doc_name):
-    frappe.log_error(f"Attempting to enqueue compare_tables for doc: {doc_name}", "Enqueue Debug")
-
-    # Optional: Add a permission check here
-    if not frappe.has_permission('Inventory Count', 'write'):
-        frappe.throw(frappe._("You do not have permission to trigger this comparison."), frappe.PermissionError)
-
-    try:
-        job = frappe.enqueue(
-            method='inv_count.inventory_count.doctype.inventory_count.inventory_count.compare_child_tables',
-            queue='default',
-            timeout=300,
-            is_async=True,
-            doc_name=doc_name
-        )
-        frappe.log_error(f"Job enqueued successfully: {job.id}", "Enqueue Debug")
-        return {'job_id': job.id}
-    except Exception as e:
-        frappe.log_error(f"Error enqueuing job: {e}", "Enqueue Error")
-        # Re-raise or return a specific error to the client if enqueueing fails
-        frappe.throw(f"Failed to enqueue comparison job: {e}")
 
 
 # Get ConnectWise Warehouses and Bins
@@ -549,6 +521,7 @@ def push_confirmed_differences_to_connectwise(doc_name):
     Note: This version does NOT include Warehouse ID or Warehouse Bin ID in the adjustment details payload.
     Please verify ConnectWise API requirements for these fields.
     """
+    print("Pushing confirmed differences to ConnectWise...") # For debugging purposes, can be removed later
     try:
         doc = frappe.get_doc("Inventory Count", doc_name)
         

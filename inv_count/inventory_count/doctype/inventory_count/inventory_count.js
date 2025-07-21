@@ -392,55 +392,29 @@ frappe.ui.form.on('Inventory Count', {
         // Return a Promise to make before_submit asynchronous
         return new Promise((resolve, reject) => {
 
-            if (frm.__is_connectwise_push_in_progress) {
-                console.log("ConnectWise push already in progress for this submission. Preventing duplicate call.");
-                // If it's already in progress, we might want to resolve or reject based on desired behavior.
-                // For preventing duplicates, resolving immediately is often best if you assume the first call will complete.
-                resolve();
-                return; // Exit to prevent re-triggering the call
-            }
-
-            frm.__is_connectwise_push_in_progress = true;
-
             
             // Call the whitelisted Python wrapper to enqueue the comparison
              // Disable auto-update during this operation
             if (auto_update) {
                 python_request_in_progress(true); // Set the flag to indicate a Python request is in progress
+                if (debug_mode) console.log("Comaparing child tables for differences...");
                 frappe.call({
-                    method: "inv_count.inventory_count.doctype.inventory_count.inventory_count.enqueue_compare_tables",
+                    method: "inv_count.inventory_count.doctype.inventory_count.inventory_count.compare_child_tables",
                     args: {
                         doc_name: frm.doc.name
                     },
                     callback: function(r) {
-                        if (r.message && r.message.job_id) {
-                            const jobId = r.message.job_id;
-                            console.log("Comparison job enqueued with ID:", jobId);
-
-                            // Listen for job completion
-                            frappe.realtime.on(`Compare Complete`, () => {
-                                frm.reload_doc().then(() => {     
-                                    python_request_in_progress(false); // Reset the flag after sucessful
-                                    checkAllDifferencesConfirmed(frm, resolve, reject);
-                                }).catch(e => {
-                                    python_request_in_progress(false); // Reset the flag on error
-                                    reject();
-                                });
-                            });
-
-                            // Listen for job failure
-                            frappe.realtime.on(`Compare Error`, (data) => {
-                                frappe.msgprint({
-                                    message: __('La comparaison des inventaires a échoué : ') + (data.message),
-                                    title: __('Erreur'),
-                                    indicator: 'red'
-                                });
+                        if (r.message== "success") {
+                            if (debug_mode) console.log("All child tables compared successfully. Reloading document...");
+                            frm.reload_doc().then(() => {
+                                checkAllDifferencesConfirmed(frm, resolve, reject);
+                            }).catch(e => {
                                 python_request_in_progress(false); // Reset the flag on error
                                 reject();
                             });
 
                         } else {
-                            frappe.msgprint(__("Échec de la mise en file d'attente de la tâche de comparaison."));
+                            frappe.msgprint(__("Compare Failed: ") + r.message);
                             python_request_in_progress(false); // Reset the flag on error
                             reject();
                         }
@@ -514,8 +488,8 @@ function checkAllDifferencesConfirmed(frm, resolve, reject) {
     } else {
         // If all relevant differences are confirmed, prompt the user to push to ConnectWise.
             if (debug_mode) console.log("All differences confirmed. Proceeding to push to ConnectWise.");
-            if (auto_update) {
-                python_request_in_progress(true); // Disable auto-update during the API call
+            console.log("Pushing confirmed differences to ConnectWise...");
+            
                 frappe.call({
                     method: 'inv_count.inventory_count.doctype.inventory_count.inventory_count.push_confirmed_differences_to_connectwise',
                     args: {
@@ -527,10 +501,10 @@ function checkAllDifferencesConfirmed(frm, resolve, reject) {
                             message: r.message.message,
                             indicator: 'blue'
                         }, 10);
-                        frm.reload_doc().then(() => {
+                        
                             resolve(); // Resolve the Promise to allow submission
                             if (debug_mode) console.log("Push to ConnectWise successful, form reloaded.");
-                        });
+                        
                     } else {
                         frappe.show_alert({
                             message: r.message.message || __('An unexpected response was received from the server.'),
@@ -546,9 +520,7 @@ function checkAllDifferencesConfirmed(frm, resolve, reject) {
                     reject();
                     python_request_in_progress(false); // Re-enable auto-update even if the API call fails
                 });
-            } else {
-                if (debug_mode) console.log("Auto-update is disabled. Please reload the page");
-            }
+            
     }
 }
 
