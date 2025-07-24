@@ -19,6 +19,7 @@ frappe.ui.form.on('Inventory Count', {
             .catch(error => {
                 console.error("Error fetching debug_mode setting:", error);
             });
+            if (debug_mode) console.log("Debug Mode is active");
             
             if (frm.doc.__islocal) {
                 frappe.call({
@@ -404,7 +405,8 @@ frappe.ui.form.on('Inventory Count', {
                         doc_name: frm.doc.name
                     },
                     callback: function(r) {
-                        if (r.message== "success") {
+                        console.log("Comparison response:", r);
+                        if (r.message.status == "success") {
                             if (debug_mode) console.log("All child tables compared successfully. Reloading document...");
                             frm.reload_doc().then(() => {
                                 checkAllDifferencesConfirmed(frm, resolve, reject);
@@ -414,7 +416,7 @@ frappe.ui.form.on('Inventory Count', {
                             });
 
                         } else {
-                            frappe.msgprint(__("Compare Failed: ") + r.message);
+                            frappe.msgprint(__("Compare Failed: ") + r.message.message);
                             python_request_in_progress(false); // Reset the flag on error
                             reject();
                         }
@@ -496,21 +498,29 @@ function checkAllDifferencesConfirmed(frm, resolve, reject) {
                         doc_name: frm.doc.name
                     }
                 }).then(r => {
-                    if (r.message && r.message.status === "success") {
+                    if (r.message.status === "success" ) {
                         frappe.show_alert({
                             message: r.message.message,
-                            indicator: 'blue'
-                        }, 10);
+                            indicator: 'green'
+                        }, 15);
                         
                             resolve(); // Resolve the Promise to allow submission
                             if (debug_mode) console.log("Push to ConnectWise successful, form reloaded.");
                         
+                    } else if (r.message.status === "partial_success") 
+                    {
+                        frappe.show_alert({
+                            message: r.message.message,
+                            indicator: 'orange'
+                        }, 15);
+                        resolve(); // Resolve the Promise to allow submission even if some items failed
+                        if (debug_mode) console.log("Push to ConnectWise partially successful, form reloaded.");
                     } else {
                         frappe.show_alert({
                             message: r.message.message || __('An unexpected response was received from the server.'),
                             title: __('Error'),
                             indicator: 'red'
-                        }, 10);
+                        }, 15);
                         reject();
                         python_request_in_progress(false); // Re-enable auto-update even if the API call fails
                     }

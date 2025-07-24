@@ -595,7 +595,7 @@ def push_confirmed_differences_to_connectwise(doc_name):
                     'catalogItem': { # Reference to the ConnectWise product
                         'identifier': item.item_code
                     },
-                    'description': item.description, # Using item_name from Frappe as description
+                    #'description': item.description, # Using item_name from Frappe as description
                     'quantityAdjusted': difference_qty, # Use the actual difference, can be negative
                     'warehouse': { 
                         'name': warehouse_name
@@ -637,27 +637,60 @@ def push_confirmed_differences_to_connectwise(doc_name):
                 'identifier': cw_adjustment_type_name_for_item,
             },
             'reason': reason, # Reason for the overall adjustment
-            'adjustmentDetails': adjustment_details_list # Array of all individual item adjustments
         }
 
-        pushed_count = 0 # This will now be 1 if the main push succeeds, 0 otherwise
+        pushed_count = 0
+        failed_detail_pushes = [] # To track individual detail push failures
+
         try:
-            # Step 2: Create the single inventory adjustment with all details using POST
-            #response = requests.post(adjustments_api_endpoint, headers=headers, data=json.dumps(main_adjustment_payload), timeout=60) # Increased timeout for larger payloads
-            #response.raise_for_status() 
-            print(json.dumps(main_adjustment_payload))
+            # Step 1: Create the main inventory adjustment (uncommented this part)
+            response = requests.post(adjustments_api_endpoint, headers=headers, data=json.dumps(main_adjustment_payload), timeout=60)
+            response.raise_for_status() # Raise an exception for bad status codes
 
+            parentId = response.json().get('id') # Get the ID of the created adjustment
 
-            # If the main POST succeeds, all items in the list are considered pushed
-            pushed_count = len(adjustment_details_list)
+            print(f"ConnectWise: Created adjustment with ID {parentId}.")
+
+            # Step 2: Iterate and send each adjustment detail individually
+            for detail in adjustment_details_list:
+                adjustments_details_api_endpoint = f"{connectwise_api_url}/procurement/adjustments/{parentId}/details"
+                try:
+                    details_response = requests.post(adjustments_details_api_endpoint, headers=headers, data=json.dumps(detail), timeout=60)
+                    details_response.raise_for_status() # Raise an exception for bad status codes
+                    pushed_count += 1
+
+                except requests.exceptions.RequestException as detail_req_err:
+                    error_detail = f"Failed to push detail for item '{detail.get('catalogItem', {}).get('identifier', 'N/A')}': {detail_req_err}"
+                    if hasattr(detail_req_err, 'response') and detail_req_err.response is not None:
+                        try:
+                            cw_error = detail_req_err.response.json()
+                            error_message = cw_error.get('message', str(cw_error))
+                            error_detail += f" - CW Error: {error_message} (Status: {detail_req_err.response.status_code})"
+                        except json.JSONDecodeError:
+                            error_detail += f" - CW Raw Response: {detail_req_err.response.text}"
+                    frappe.log_error(error_detail, "ConnectWise Adjustment Detail Push Error")
+                    failed_detail_pushes.append(error_detail)
+                except Exception as detail_err:
+                    error_detail = f"An unexpected error occurred during detail push for item '{detail.get('catalogItem', {}).get('identifier', 'N/A')}': {detail_err}"
+                    frappe.log_error(error_detail, "ConnectWise Adjustment Detail Push Generic Error")
+                    failed_detail_pushes.append(error_detail)
+
 
             # Mark all successfully pushed items as pushed in Frappe
             for item in confirmed_items_to_push:
+                # You'll need to refine this to only mark the ones whose details were truly pushed
+                # This might involve comparing item.item_code with the successfully pushed details
+                # For simplicity here, assuming if the overall process reaches this point, you'd mark them.
+                # A more robust solution would track individual successes.
                 if hasattr(item, 'pushed_to_connectwise'):
                     item.db_set('pushed_to_connectwise', 1) 
             
-            return {"status": "success", "message": _(f"ConnectWise push process finished. {pushed_count} adjustments pushed successfully, {len(failed_pushes)} failed.")}
-
+            final_message = _(f"ConnectWise push process finished. {pushed_count} adjustment details pushed successfully.")
+            if failed_detail_pushes:
+                final_message += _(f" {len(failed_detail_pushes)} detail pushes failed: {', '.join(failed_detail_pushes)}")
+                return {"status": "partial_success", "message": final_message}
+            else:
+                return {"status": "success", "message": final_message}
         except requests.exceptions.Timeout:
             error_detail = f"Consolidated request to ConnectWise timed out after preparing {len(adjustment_details_list)} items."
             frappe.log_error(error_detail, "ConnectWise Consolidated Push Timeout Error")

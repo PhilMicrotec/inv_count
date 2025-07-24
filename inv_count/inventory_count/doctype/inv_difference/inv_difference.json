@@ -12,7 +12,8 @@
   "virtual_qty",
   "bin",
   "difference_reason",
-  "confirmed"
+  "confirmed",
+  "snlist"
  ],
  "fields": [
   {
@@ -60,13 +61,18 @@
    "fieldname": "bin",
    "fieldtype": "Data",
    "label": "Bin"
+  },
+  {
+   "fieldname": "snlist",
+   "fieldtype": "Data",
+   "label": "SNList"
   }
  ],
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "istable": 1,
  "links": [],
- "modified": "2025-07-18 13:13:50.948408",
+ "modified": "2025-07-24 08:46:07.082714",
  "modified_by": "Administrator",
  "module": "Inventory Count",
  "name": "Inv_difference",
