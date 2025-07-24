@@ -176,6 +176,10 @@ def compare_child_tables(doc_name):
 
     Allows comparison to be filtered by the main 'category' field on the Inventory Count document.
     If 'category' is empty, all items are compared.
+
+    Additionally, if a product added to 'inv_difference' has serial numbers in
+    'inv_virtual_items', these serial numbers will populate/update the 'inv_difference_sn'
+    child table, linking them to the 'item_code' and PRESERVING existing 'to_do' statuses.
     """
     try:
         doc = frappe.get_doc("Inventory Count", doc_name)
@@ -190,6 +194,11 @@ def compare_child_tables(doc_name):
             for row in doc.get("inv_difference") if row.item_code
         }
 
+        # Map to store SNList for virtual items
+        virtual_item_snlist_map = {
+            row.get("item_id"): row.get("snlist")
+            for row in all_virtual_items if row.get("item_id")
+        }
 
         physical_items_to_compare = []
         virtual_items_to_compare = []
@@ -201,11 +210,12 @@ def compare_child_tables(doc_name):
                 item for item in all_virtual_items if item.category == main_category_filter
             ]
             
-            # Get item_ids from the filtered virtual items to use for filtering physical items
-            virtual_item_ids_in_category = {item.item_id for item in virtual_items_to_compare}
-
-            physical_items_to_compare = all_physical_items 
-
+            # If physical items should *also* be filtered by category:
+            physical_items_to_compare = [
+                item for item in all_physical_items if item.get("category") == main_category_filter # Assuming physical items also have a category field
+            ]
+            # If physical items should *not* be filtered by category (compare all physical against filtered virtual):
+            # physical_items_to_compare = all_physical_items # Original behavior if no category field on physical
         else:
             physical_items_to_compare = all_physical_items
             virtual_items_to_compare = all_virtual_items
@@ -235,6 +245,20 @@ def compare_child_tables(doc_name):
         # Keep track of item_codes that were updated/created in inv_difference
         processed_difference_items = set()
 
+        # --- MODIFIED: Store existing inv_difference_sn data to preserve 'to_do' ---
+        existing_sn_data_map = {} # Key: (product, serial_number), Value: {to_do: ..., other_fields: ...}
+        for sn_row in doc.get("inv_difference_sn"):
+            key = (sn_row.get("product"), sn_row.get("serial_number"))
+            if key[0] and key[1]: # Ensure both product and serial_number exist
+                existing_sn_data_map[key] = {
+                    "to_do": sn_row.get("to_do"),
+                    # Add any other fields you want to preserve here
+                }
+        
+        # New list to build the updated inv_difference_sn content
+        updated_inv_difference_sn = []
+        # --- END MODIFIED ---
+
         # --- Upsert logic for discrepancies based on Physical Items (from the items selected for comparison) ---
         for item_code, physical_qty_int in physical_items_map.items():
             if item_code is None:
@@ -249,21 +273,20 @@ def compare_child_tables(doc_name):
             
             if difference != 0:
                 # Try to find an existing row in inv_difference for this item_code
-                existing_row = None
-                # Always iterate to find existing row now, as we don't clear the table
+                existing_row_diff = None
                 for row in doc.get("inv_difference"):
                     if row.item_code == item_code:
-                        existing_row = row
+                        existing_row_diff = row
                         break
 
-                if existing_row:
+                if existing_row_diff:
                     # Update existing row
-                    existing_row.description = description_physical
-                    existing_row.physical_qty = physical_qty_int
-                    existing_row.virtual_qty = virtual_qty_int
-                    existing_row.difference_qty = difference
-                    existing_row.difference_reason = _("Quantité différente") if item_code in virtual_items_map else _("Article non trouvé dans l'inventaire virtuel")
-                    existing_row.bin = bin_from_virtual
+                    existing_row_diff.description = description_physical
+                    existing_row_diff.physical_qty = physical_qty_int
+                    existing_row_diff.virtual_qty = virtual_qty_int
+                    existing_row_diff.difference_qty = difference
+                    existing_row_diff.difference_reason = _("Quantité différente") if item_code in virtual_items_map else _("Article non trouvé dans l'inventaire virtuel")
+                    existing_row_diff.bin = bin_from_virtual
                 else:
                     # Create new row
                     new_diff_item = doc.append("inv_difference", {})
@@ -278,6 +301,28 @@ def compare_child_tables(doc_name):
 
                 processed_difference_items.add(item_code)
 
+                # --- MODIFIED: Populate/Update inv_difference_sn for this item ---
+                snlist_str = virtual_item_snlist_map.get(item_code)
+                if snlist_str and snlist_str != '0':
+                    serial_numbers = [sn.strip() for sn in snlist_str.split(',') if sn.strip()]
+                    for sn in serial_numbers:
+                        sn_key = (item_code, sn)
+                        
+                        # Create a new row (will be populated or updated in the final set)
+                        new_sn_row_data = {
+                            "product": item_code,
+                            "serial_number": sn
+                        }
+                        
+                        # Preserve 'to_do' status if it existed for this serial
+                        if sn_key in existing_sn_data_map:
+                            new_sn_row_data["to_do"] = existing_sn_data_map[sn_key]["to_do"]
+                        # else: new_sn_row_data["to_do"] will default to whatever its default value is (usually None/empty)
+                        
+                        updated_inv_difference_sn.append(new_sn_row_data)
+                # --- END MODIFIED ---
+
+
         # --- Upsert logic for items only in Virtual Items (from the items selected for comparison, not in Physical's selected list) ---
         for item_code, virtual_qty_int in virtual_items_map.items():
             if item_code is None or item_code in physical_items_map:
@@ -289,21 +334,21 @@ def compare_child_tables(doc_name):
             bin_from_virtual = virtual_item_bin_map.get(item_code, "")
 
             # Always iterate to find existing row now, as we don't clear the table
-            existing_row = None
+            existing_row_diff = None
             for row in doc.get("inv_difference"):
                 if row.item_code == item_code:
-                    existing_row = row
+                    existing_row_diff = row
                     break
 
-            if existing_row:
+            if existing_row_diff:
                 # Update existing row
-                existing_row.description = description_virtual
-                existing_row.physical_qty = 0
-                existing_row.virtual_qty = virtual_qty_int
-                existing_row.difference_qty = difference
-                existing_row.difference_reason = _("Article non trouvé dans l'inventaire physique")
-                existing_row.bin = bin_from_virtual
-                # existing_row.confirmed is implicitly preserved here
+                existing_row_diff.description = description_virtual
+                existing_row_diff.physical_qty = 0
+                existing_row_diff.virtual_qty = virtual_qty_int
+                existing_row_diff.difference_qty = difference
+                existing_row_diff.difference_reason = _("Article non trouvé dans l'inventaire physique")
+                existing_row_diff.bin = bin_from_virtual
+                # existing_row_diff.confirmed is implicitly preserved here
             else:
                 # Create new row
                 new_diff_item = doc.append("inv_difference", {})
@@ -316,8 +361,26 @@ def compare_child_tables(doc_name):
                 new_diff_item.confirmed = existing_confirmed_status_map.get(item_code, 0)
                 new_diff_item.bin = bin_from_virtual
                 
-
             processed_difference_items.add(item_code)
+
+            # --- MODIFIED: Populate/Update inv_difference_sn for this item ---
+            snlist_str = virtual_item_snlist_map.get(item_code)
+            if snlist_str and snlist_str != '0':
+                serial_numbers = [sn.strip() for sn in snlist_str.split(',') if sn.strip()]
+                for sn in serial_numbers:
+                    sn_key = (item_code, sn)
+                    
+                    new_sn_row_data = {
+                        "product": item_code,
+                        "serial_number": sn
+                    }
+                    
+                    if sn_key in existing_sn_data_map:
+                        new_sn_row_data["to_do"] = existing_sn_data_map[sn_key]["to_do"]
+                    
+                    updated_inv_difference_sn.append(new_sn_row_data)
+            # --- END MODIFIED ---
+
 
         # --- Clean up inv_difference table: remove items that are no longer differences ---
         items_to_remove = []
@@ -331,20 +394,32 @@ def compare_child_tables(doc_name):
                 current_physical_qty = physical_items_map.get(row.item_code, 0)
                 current_virtual_qty = virtual_items_map.get(row.item_code, 0)
                 if (current_physical_qty - current_virtual_qty) == 0: # If difference is now 0
-                    # Double check if this item_code appeared in the original virtual_items_map for the filter context
-                    # If it did, and physical quantity now matches virtual, it's no longer a difference.
-                    # This implies no "Mauvaise Catégorie" logic is present in this specific version,
-                    # so we remove it if quantities match.
                     if (row.item_code in virtual_items_map and 
                         physical_items_map.get(row.item_code, 0) == virtual_items_map.get(row.item_code, 0)):
                         items_to_remove.append(row)
-                    # If it's a physical item not found in virtual, and its physical qty is 0, then remove
                     elif row.item_code not in virtual_items_map and physical_items_map.get(row.item_code, 0) == 0:
                         items_to_remove.append(row)
 
         for row_to_remove in items_to_remove:
             doc.remove(row_to_remove)
-        # --- MODIFICATION END ---
+
+        # --- MODIFIED: Final update of inv_difference_sn ---
+        # First, convert the list of dictionaries into a list of Frappe ChildTable rows
+        # This approach ensures uniqueness and handles updates/removals more robustly.
+        final_inv_difference_sn_rows = []
+        seen_sn_keys = set() # To ensure unique (product, serial_number) pairs
+
+        for sn_data in updated_inv_difference_sn:
+            sn_key = (sn_data["product"], sn_data["serial_number"])
+            if sn_key not in seen_sn_keys: # Only add if not already processed in this run
+                new_row = doc.append("inv_difference_sn", sn_data)
+                final_inv_difference_sn_rows.append(new_row)
+                seen_sn_keys.add(sn_key)
+
+        # Set the entire child table with the new list of rows.
+        # This will effectively update existing ones, add new, and remove old ones.
+        doc.set("inv_difference_sn", final_inv_difference_sn_rows)
+        # --- END MODIFIED ---
 
         doc.save()
         frappe.db.commit() # Ensure changes are persisted in the database
@@ -360,7 +435,6 @@ def compare_child_tables(doc_name):
         frappe.msgprint(_(f"Une erreur est survenue lors de la comparaison des tables : {e}"), title=_("Erreur d'importation"), indicator='red')
         frappe.publish_realtime("Compare Error", {"message": str(e), "traceback": error_trace})
         return {"status": "error", "message": str(e)}
-
 
 
 # --- WHITELISTED WRAPPER FUNCTIONS FOR ENQUEUEING ---
@@ -574,6 +648,25 @@ def push_confirmed_differences_to_connectwise(doc_name):
             frappe.msgprint(_("No confirmed inventory differences found to push to ConnectWise (or quantities match)."), title=_("No Items"), indicator='blue')
             return {"status": "success", "message": _("No items to push.")}
         
+        item_serials_map = {}
+        for sn_row in doc.get("inv_difference_sn"):
+            item_code = sn_row.get("product")
+            serial_number = sn_row.get("serial_number")
+            to_do_status = sn_row.get("to_do") # <-- NEW: Get the 'to_do' field
+
+            # <-- MODIFIED CONDITION: Only add if 'to_do' is "remove"
+            if item_code and serial_number and to_do_status == "Remove":
+                if item_code not in item_serials_map:
+                    item_serials_map[item_code] = []
+                item_serials_map[item_code].append(serial_number)
+            
+            # <-- MODIFIED CONDITION: Only add if 'to_do' is "add"
+            if item_code and serial_number and to_do_status == "Add":
+                if item_code not in item_serials_map:
+                    item_serials_map[item_code] = []
+                item_serials_map[item_code].append(serial_number)
+        
+
         failed_pushes = []
         adjustment_details_list = [] # This will hold all individual item adjustments
 
@@ -604,6 +697,12 @@ def push_confirmed_differences_to_connectwise(doc_name):
                         'name': item.bin
                     }
                 }
+                # --- Add serial numbers if available and relevant ---
+                if difference_qty < 0: # Only for missing items (negative adjustment)
+                    serials_for_item = item_serials_map.get(item.item_code)
+                    if serials_for_item:
+                        adjustment_detail['serialNumbers'] = serials_for_item 
+                
                 adjustment_details_list.append(adjustment_detail)
 
             except requests.exceptions.Timeout:
@@ -632,7 +731,7 @@ def push_confirmed_differences_to_connectwise(doc_name):
 
         # --- Prepare the main adjustment payload with all details ---
         main_adjustment_payload = {
-            'identifier': reason, # Using reason as identifier for the main adjustment
+            'identifier': doc_name, # Using doc_name as identifier for the main adjustment
             'type': {
                 'identifier': cw_adjustment_type_name_for_item,
             },
@@ -644,19 +743,20 @@ def push_confirmed_differences_to_connectwise(doc_name):
 
         try:
             # Step 1: Create the main inventory adjustment (uncommented this part)
-            response = requests.post(adjustments_api_endpoint, headers=headers, data=json.dumps(main_adjustment_payload), timeout=60)
-            response.raise_for_status() # Raise an exception for bad status codes
+            #response = requests.post(adjustments_api_endpoint, headers=headers, data=json.dumps(main_adjustment_payload), timeout=60)
+            #response.raise_for_status() # Raise an exception for bad status codes
 
-            parentId = response.json().get('id') # Get the ID of the created adjustment
+            #parentId = response.json().get('id') # Get the ID of the created adjustment
 
-            print(f"ConnectWise: Created adjustment with ID {parentId}.")
+            #print(f"ConnectWise: Created adjustment with ID {parentId}.")
 
             # Step 2: Iterate and send each adjustment detail individually
             for detail in adjustment_details_list:
-                adjustments_details_api_endpoint = f"{connectwise_api_url}/procurement/adjustments/{parentId}/details"
+                #adjustments_details_api_endpoint = f"{connectwise_api_url}/procurement/adjustments/{parentId}/details"
                 try:
-                    details_response = requests.post(adjustments_details_api_endpoint, headers=headers, data=json.dumps(detail), timeout=60)
-                    details_response.raise_for_status() # Raise an exception for bad status codes
+                    #details_response = requests.post(adjustments_details_api_endpoint, headers=headers, data=json.dumps(detail), timeout=60)
+                    #details_response.raise_for_status() # Raise an exception for bad status codes
+                    print(json.dumps(detail))
                     pushed_count += 1
 
                 except requests.exceptions.RequestException as detail_req_err:

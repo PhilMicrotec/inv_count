@@ -1,16 +1,16 @@
 {
  "actions": [],
- "autoname": "format:Inv-{YYYY}-{MM}-{DD}-{##}",
+ "autoname": "format:{form_name} ({DD}-{MM}-{YYYY})",
  "creation": "2025-05-29 10:26:51.682859",
  "doctype": "DocType",
  "engine": "InnoDB",
  "field_order": [
   "section_break_zhmm",
+  "form_name",
   "amended_from",
   "location",
   "warehouse",
   "warehouse_bin",
-  "type",
   "date",
   "category",
   "section_break_slsq",
@@ -23,7 +23,8 @@
   "column_break_ybrb",
   "adjustment_type",
   "reason",
-  "inv_difference"
+  "inv_difference",
+  "inv_difference_sn"
  ],
  "fields": [
   {
@@ -108,13 +109,6 @@
    "read_only": 1
   },
   {
-   "fieldname": "type",
-   "fieldtype": "Select",
-   "label": "Count Type",
-   "options": "Annuel\nMensuel\nAutre",
-   "reqd": 1
-  },
-  {
    "depends_on": "eval:!(doc.__islocal)",
    "fieldname": "inventory_difference_section",
    "fieldtype": "Section Break",
@@ -146,13 +140,25 @@
    "fieldtype": "Data",
    "label": "Reason",
    "length": 50
+  },
+  {
+   "fieldname": "form_name",
+   "fieldtype": "Data",
+   "label": "Form Name (Date automatically added)",
+   "set_only_once": 1
+  },
+  {
+   "fieldname": "inv_difference_sn",
+   "fieldtype": "Table",
+   "label": "Serial Numbers",
+   "options": "Inv_difference_sn"
   }
  ],
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "is_submittable": 1,
  "links": [],
- "modified": "2025-07-04 12:03:05.470090",
+ "modified": "2025-07-24 12:55:05.481384",
  "modified_by": "Administrator",
  "module": "Inventory Count",
  "name": "Inventory Count",
