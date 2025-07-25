@@ -449,8 +449,61 @@ function checkAllDifferencesConfirmed(frm, resolve, reject) {
         }
     }
 
-    // If not all relevant differences are confirmed, block the submission.
-    if (!allConfirmed || frm.doc.adjustment_type === '' || frm.doc.reason === '') {
+    //Count serial numbers in inv_difference_sn and compare with inv_difference
+    let has_validation_errors = false;
+    let serial_todo_counts = {};
+    let serial_counts = {};
+
+    // 1. Aggregate counts from inv_difference_sn
+    frm.doc.inv_difference_sn.forEach(function (sn_row) {
+        let product_code = sn_row.product;
+        let to_do_status = sn_row.to_do;
+
+        // Only count if product_code exists and to_do is explicitly 'add' or 'remove'
+        if (product_code && (to_do_status === 'Remove/Add')) {
+            if (!serial_todo_counts[product_code]) {
+                serial_todo_counts[product_code] = 0;
+            }
+            serial_todo_counts[product_code]++;
+        }
+        // Only count if product_code exists and to_do is explicitly 'add' or 'remove'
+        if (product_code) {
+            if (!serial_counts[product_code]) {
+                serial_counts[product_code] = 0;
+            }
+            serial_counts[product_code]++;
+        }
+    });
+
+    // 2. Iterate through inv_difference and compare with aggregated counts
+    frm.doc.inv_difference.forEach(function (diff_row) {
+        let item_code = diff_row.item_code;
+        let difference_qty = diff_row.physical_qty - diff_row.virtual_qty;
+
+        // Only validate items that actually have a difference (not 0)
+        if (difference_qty !== 0) {
+            const product_has_serials_in_sn_list = serial_counts.hasOwnProperty(item_code);
+
+            if (product_has_serials_in_sn_list) {
+                // The expected count of serials is the absolute value of the difference quantity
+                let expected_sn_count = Math.abs(difference_qty);
+
+                // Get the actual count from our aggregated map, defaulting to 0 if not found
+                let actual_sn_count = serial_todo_counts[item_code] || 0;
+
+                // Compare expected vs actual serial counts
+                if (expected_sn_count !== actual_sn_count) {
+                    if (debug_mode) console.log(`Validation Error: Item ${item_code} has expected SN count ${expected_sn_count} but found ${actual_sn_count}.`);
+                    has_validation_errors = true; // Set flag to prevent save
+                }
+            } else {
+                // If no serials are found in the SN list, we can still validate the difference
+                if (debug_mode) console.log(`Validation Warning: Item ${item_code} has no serials in SN list.`);
+            }
+        }
+    });
+
+    if (!allConfirmed || frm.doc.adjustment_type === '' || frm.doc.reason === '' || has_validation_errors) {
         // Ensure the inventory difference section is visible to the user.
         frm.set_df_property('inventory_difference_section', 'hidden', false);
         frappe.show_alert({

@@ -654,17 +654,12 @@ def push_confirmed_differences_to_connectwise(doc_name):
             serial_number = sn_row.get("serial_number")
             to_do_status = sn_row.get("to_do") # <-- NEW: Get the 'to_do' field
 
-            # <-- MODIFIED CONDITION: Only add if 'to_do' is "remove"
-            if item_code and serial_number and to_do_status == "Remove":
+            # <-- MODIFIED CONDITION: Only add if 'to_do' is "Remove/Add"
+            if item_code and serial_number and to_do_status == "Remove/Add":
                 if item_code not in item_serials_map:
                     item_serials_map[item_code] = []
                 item_serials_map[item_code].append(serial_number)
             
-            # <-- MODIFIED CONDITION: Only add if 'to_do' is "add"
-            if item_code and serial_number and to_do_status == "Add":
-                if item_code not in item_serials_map:
-                    item_serials_map[item_code] = []
-                item_serials_map[item_code].append(serial_number)
         
 
         failed_pushes = []
