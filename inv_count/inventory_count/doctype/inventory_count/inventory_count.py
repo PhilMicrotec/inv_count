@@ -6,7 +6,7 @@ from frappe import _ # Import for translation support
 from frappe.model.document import Document
 import pandas as pd
 import os
-import pymysql
+import pyodbc
 import traceback # Import for more detailed error traceback
 import requests
 import base64
@@ -78,13 +78,8 @@ def import_data_with_pandas(inventory_count_name):
                 frappe.throw(_("Missing SQL connection details (Host, Database, Username, or Query) in 'Inventory Count Settings'."), title=_("SQL Details Missing"))
 
             try:
-                conn = pymysql.connect(
-                    host=sql_host,
-                    port=int(sql_port) if sql_port else 3306,
-                    user=sql_username,
-                    password=sql_password,
-                    database=sql_database
-                )
+                conn_str = f"DRIVER={{ODBC Driver 17 for SQL Server}};SERVER={sql_host},{int(sql_port)};DATABASE={sql_database};UID={sql_username};PWD={sql_password};TrustServerCertificate=yes;Encrypt=yes"
+                conn = pyodbc.connect(conn_str)
                 frappe.msgprint(_("Successfully connected to SQL database: {0} on {1}:{2}").format(sql_database, sql_host, sql_port), title=_("SQL Connect Success"), indicator='green')
                 df = pd.read_sql(sql_query, conn)
                 conn.close()
