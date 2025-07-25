@@ -35,7 +35,6 @@ def import_data_with_pandas(inventory_count_name):
         return {"status": "error", "message": _("Document '{0}' not found.").format(parent_doctype)}
 
     inventory_count_doc = frappe.get_doc(parent_doctype, inventory_count_name)
-    frappe.msgprint(_("Importing virtual inventory for '{0}'...").format(inventory_count_doc.name), title=_("Import Status"), indicator='blue')
 
     # 2. Get the Inventory Count Settings document
     try:
@@ -155,14 +154,15 @@ def import_data_with_pandas(inventory_count_name):
         inventory_count_doc.save()
         frappe.db.commit() # Ensure changes are persisted in the database
 
-        frappe.publish_realtime("Import Complete") # This is an event name, not a translatable user-facing message
+        return {"status": "success", "message": _("Import completed successfully. {0} items imported.").format(len(inventory_count_doc.get(child_table_field_name)))} # This is a translatable user-facing message
+        #frappe.publish_realtime("Import Complete") # This is an event name, not a translatable user-facing message
 
     except Exception as e:
         frappe.db.rollback() # Rollback changes in case of error
         frappe.log_error(frappe.get_traceback(), "Error during Inventory Count import") # Changed log category to English
         traceback.print_exc() # For more detailed error trace in console
         frappe.msgprint(_("An error occurred during import: {0}").format(e), title=_("Import Error"), indicator='red')
-        frappe.publish_realtime("Import Error", {"message": str(e)}) # This is an event payload, not a translatable user-facing message
+        #frappe.publish_realtime("Import Error", {"message": str(e)}) # This is an event payload, not a translatable user-facing message
         return {"status": "error", "message": str(e)}
 
 

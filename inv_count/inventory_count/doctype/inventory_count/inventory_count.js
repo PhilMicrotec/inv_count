@@ -74,25 +74,21 @@ frappe.ui.form.on('Inventory Count', {
             initialized = true; // Set initialized to true to prevent multiple calls
             python_request_in_progress(true); // Disable auto-update during initial import
             frappe.show_alert({
-                message: __("L'importation de l'inventaire virtuel a démarré en arrière-plan. Cela peut prendre un certain temps."),
+                message: __("L'importation de l'inventaire a démarré. Cela peut prendre un certain temps."),
                 indicator: 'blue'
             }, 5); // Show alert for 5 seconds
 
             frappe.call({
                 // Calls the whitelisted Python wrapper function to enqueue the import
-                method: 'inv_count.inventory_count.doctype.inventory_count.inventory_count.enqueue_import_data',
+                method: 'inv_count.inventory_count.doctype.inventory_count.inventory_count.import_data_with_pandas',
                 args: {
                     inventory_count_name: frm.doc.name // Pass the current document's name
                 },
                 callback: function(r) {
                     // This callback fires when the job is SUCCESSFULLY ENQUEUED on the server.
                     // It does NOT mean the import job itself is complete.
-                    if (r.message && r.message.job_id) {
+                    if (r.message.status === "success") {
                         const jobId = r.message.job_id;
-                        console.log("Import job enqueued with ID:", jobId);
-                        
-                        // Listen for the specific job completion event via Frappe Realtime
-                        frappe.realtime.on(`Import Complete`, () => {
                             frappe.show_alert({
                                 message: __("Importation de l'inventaire virtuel terminée."),
                                 indicator: 'green'
@@ -102,24 +98,12 @@ frappe.ui.form.on('Inventory Count', {
                                 populateMainCategoryDropdown(frm);
                                 python_request_in_progress(false); // Re-enable auto-update after import
                             });
-                        });
-
-                        // Listen for job failure events
-                        frappe.realtime.on(`Import Error`, (data) => {
-                            frappe.msgprint({
-                                message: __('L\'importation de l\'inventaire virtuel a échoué : ') + (data.message),
-                                title: __('Erreur'),
-                                indicator: 'red'
-                            });
-                            initialized = false; // Reset initialized to allow future imports
-                            python_request_in_progress(false); // Re-enable auto-update after import failure
-                            console.error("Import job failed:", data);
-                        });
+                        
 
                     } else {
                         // Handle cases where the enqueueing itself failed (e.g., server error before job creation)
                         frappe.msgprint({
-                            message: __('Échec de la mise en file d\'attente de la tâche d\'importation.'),
+                            message: __('Échec d\'importation.'),
                             title: __('Erreur'),
                             indicator: 'red'
                         });
