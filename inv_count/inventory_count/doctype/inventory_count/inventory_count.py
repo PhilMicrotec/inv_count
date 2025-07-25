@@ -474,7 +474,7 @@ def get_connectwise_warehouses_and_bins():
                 title=_("API Credentials Missing")
             )
         # ConnectWise API requires Base64 encoded keys for authentication
-        credentials = f"{connectwise_company_id+"+"+public_key}:{private_key}"
+        credentials = f"{connectwise_company_id}+{public_key}:{private_key}"
         encoded_credentials = base64.b64encode(credentials.encode('utf-8')).decode('utf-8')
 
         headers = {
