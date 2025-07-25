@@ -85,7 +85,7 @@ def import_data_with_pandas(inventory_count_name):
                 conn.close()
                 frappe.msgprint(_("Successfully loaded data from SQL query."), title=_("SQL Load Success"), indicator='green')
 
-            except pymysql.Error as e:
+            except pyodbc.Error as e:
                 frappe.log_error(f"SQL Database connection/query error: {e}", "Inventory Count SQL Import Error") # Internal log, not for translation
                 frappe.throw(_("SQL Database Error: {0}. Check your connection details and query in 'Inventory Count Settings'.").format(e), title=_("SQL Error"))
             except Exception as e:
