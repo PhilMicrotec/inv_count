@@ -1,145 +1,144 @@
-'{0}' document introuvable. Veuillez d'abord configurer vos paramètres d'importation.
-,
-Identifiants API manquants
-Type d'ajustement
-Une erreur s'est produite lors de l'importation : {0}
-Une erreur s'est produite lors de l'appel API pour récupérer les types d'ajustement.
-Une erreur s'est produite lors de l'appel API ConnectWise push. Vérifiez la console du navigateur et les logs Frappe pour plus de détails.
-Une erreur inattendue s'est produite lors de l'importation SQL : {0}
-Une réponse inattendue a été reçue du serveur.
-Applications
-Article non trouvé dans l'inventaire physique
-Article non trouvé dans l'inventaire virtuel
-Retour
-Emplacement
-CSV
-Chemin du fichier CSV (relatif au dossier de l'application)
-Le chemin du fichier CSV n'est pas spécifié dans les 'Paramètres de comptage d'inventaire'.
-Chargement CSV réussi
-Chemin CSV manquant
-Code
-Comparaison des inventaires terminée avec succès.
-Échec de la comparaison :
-Les identifiants API ConnectWise (URL API, ID société, clé publique, clé privée, ID client) ne sont pas entièrement définis dans les 'Paramètres de comptage d'inventaire'. Veuillez les configurer.
-Erreur ConnectWise Push
-URL API ConnectWise
-ID client ConnectWise
-ID société ConnectWise
-Clé privée ConnectWise
-Clé publique ConnectWise
-Paramètres ConnectWise
-Erreur de mappage des données
-Date
-Mode débogage
-Paramètres développeur
-Document '{0}' introuvable.
-Document '{0}' avec le nom '{1}' introuvable.
-Document manquant
-Drummondville
-Erreur
-Erreur serveur
-Erreur d'importation
-Erreur de communication lors de la mise en file d'attente de l'importation :
-Erreur de communication lors de la mise en file d'attente de la comparaison :
-Erreur lors du chargement des entrepôts ConnectWise :
-Erreur de mappage de la ligne de données vers la table enfant : {0}. Vérifiez les noms de colonnes et types de données de votre CSV/SQL.
-Erreur lors de la navigation ou du rafraîchissement du comptage d'inventaire :
-Erreur : Fichier CSV '{0}' introuvable à '{1}'. Veuillez vérifier les 'Paramètres de comptage d'inventaire'.
-Exemple : SELECT Location, Item_ID, QOH FROM your_inventory_table
-Quantité attendue
-Coût étendu
-Échec de la récupération des types d'ajustement ConnectWise. Vérifiez les logs pour plus de détails.
-Fichier introuvable
-Nom du formulaire (date ajoutée automatiquement)
-Support Frappe
-IV_Audit_RecID
-IV_Item_RecID
-Erreur d'importation
-Type de source d'importation
-Statut d'importation
-Importation de l'inventaire virtuel terminée.
-Importation de l'inventaire virtuel pour '{0}'...
-Différence d'inventaire
-Différence d'inventaire SN
-Articles physiques inventoriés
-Articles virtuels inventoriés
-Type de source invalide
-Type de source d'importation sélectionné invalide dans les 'Paramètres de comptage d'inventaire'. Veuillez choisir 'CSV' ou 'Base de données SQL'.
-Comptage d'inventaire
-Paramètres de comptage d'inventaire
-Différence d'inventaire
-Différence d'inventaire à appliquer
-ID article
-L'importation de l'inventaire virtuel a démarré en arrière-plan. Cela peut prendre un certain temps.
-L'importation de l'inventaire virtuel a échoué :
-Date de dernière transaction
-Déconnexion
-Détails de connexion SQL manquants (Hôte, Base de données, Nom d'utilisateur ou Requête) dans les 'Paramètres de comptage d'inventaire'.
-Entrepôt manquant
-Erreur réseau
-Aucun détail à pousser
-Aucun article
-Aucune différence d'inventaire confirmée trouvée à pousser vers ConnectWise (ou les quantités correspondent).
-Aucun article à pousser.
-Aucune différence d'inventaire valide n'a pu être préparée pour le push ConnectWise.
-Aucun article valide à pousser après filtrage et recherche.
-Numéro de série
-Prélevé non facturé
-Coût prélevé non facturé
-Prélevé non expédié
-Coût prélevé non expédié
-Produit
-QOH
-QOH+Prélevé non facturé
-QOH+Prélevé non expédié
-QOH+Prélevé non expédié+Prélevé non facturé
-Quantité
-Calcul de quantité
-Quantité
-Quantité différente
-Retirer/Ajouter
-Liste SN
-Connexion SQL réussie
-Base de données SQL
-Erreur de base de données SQL : {0}. Vérifiez vos détails de connexion et la requête dans les 'Paramètres de comptage d'inventaire'.
-Nom de la base de données SQL
-Détails SQL manquants
-Erreur SQL
-Hôte SQL
-Échec de l'importation SQL
-Chargement SQL réussi
-Mot de passe SQL
-Port SQL
-Requête SQL
-Nom d'utilisateur SQL
-Articles scannés
-Sélectionnez la source d'importation des données d'inventaire virtuel.
-Coût sélectionné
-Numéros de série
-Erreur de communication serveur pour les entrepôts ConnectWise :
-Paramètres manquants
-Description courte
-Ignoré
-Connexion réussie à la base de données SQL : {0} sur {1}:{2}
-Données chargées avec succès depuis le CSV : {0}
-Données chargées avec succès depuis la requête SQL.
-Santé du système
-Paramètres utilisateur
-Nom du fournisseur
-Vendor_RecID
-Veuillez choisir un type d'ajustement et confirmer les différences d'inventaire.
-Veuillez entrer un code avant d'appuyer sur Entrée.
-Veuillez scanner ou ajouter au moins un article dans l'inventaire physique pour pouvoir soumettre.
-Inventaire virtuel
-Paramètres d'importation de l'inventaire virtuel
-Emplacement d'entrepôt
-L'entrepôt n'est pas défini dans le document de comptage d'inventaire. Impossible de poursuivre le push ConnectWise.
-Warehouse_Bin_RecID
-Warehouse_RecID
-Paramètres d'espace de travail
-Raison de la différence
-ex. test.csv (pour un fichier dans le dossier inv_count de l'application) ou chemin/vers/votre_fichier.csv
-quantité physique
-quantité virtuelle
-À faire
-Échec de la mise en file d'attente de la tâche d'importation.
+'{0}' document not found. Please configure your import settings first.,Document '{0}' introuvable. Veuillez d'abord configurer vos paramètres d'importation.
+API Credentials Missing,Identifiants API manquants
+Adjustment Type,Type d'ajustement
+An error occurred during import: {0},Une erreur est survenue lors de l'importation : {0}
+An error occurred during the API call to fetch adjustment types.,Une erreur est survenue lors de l'appel API pour récupérer les types d'ajustement.
+An error occurred during the ConnectWise push API call. Check browser console and Frappe logs for details.,Une erreur est survenue lors de l'appel API Push ConnectWise. Vérifiez la console du navigateur et les logs Frappe pour plus de détails.
+An unexpected error occurred during SQL import: {0},Une erreur inattendue est survenue lors de l'importation SQL : {0}
+An unexpected response was received from the server.,Une réponse inattendue a été reçue du serveur.
+Apps,Applications
+Article non trouvé dans l'inventaire physique,Article non trouvé dans l'inventaire physique
+Article non trouvé dans l'inventaire virtuel,Article non trouvé dans l'inventaire virtuel
+Back,Retour
+Bin,Bac
+CSV,CSV
+CSV File Path (relative to app folder),Chemin du fichier CSV (relatif au dossier de l'application)
+CSV File Path is not specified in 'Inventory Count Settings'.,Le chemin du fichier CSV n'est pas spécifié dans les paramètres de comptage d'inventaire.
+CSV Load Success,Chargement du CSV réussi
+CSV Path Missing,Chemin CSV manquant
+Code,Code
+Comparaison des inventaires terminée avec succès.,Comparaison des inventaires terminée avec succès.
+Compare Failed:,Échec de la comparaison :
+ConnectWise API credentials (API URL, Company ID, Public Key, Private Key, Client ID) are not fully set in 'Inventory Count Settings'. Please configure them.,Les identifiants API ConnectWise (URL API, ID société, clé publique, clé privée, ID client) ne sont pas entièrement définis dans les paramètres de comptage d'inventaire. Veuillez les configurer.
+ConnectWise Push Error,Erreur Push ConnectWise
+Connectwise API URL,URL API ConnectWise
+Connectwise Client ID,ID client ConnectWise
+Connectwise Company ID,ID société ConnectWise
+Connectwise Private Key,Clé privée ConnectWise
+Connectwise Public Key,Clé publique ConnectWise
+Connectwise Settings,Paramètres ConnectWise
+Data Mapping Error,Erreur de mappage des données
+Date,Date
+Debug Mode,Mode débogage
+Developper Settings,Paramètres développeur
+Document '{0}' not found.,Document '{0}' introuvable.
+Document '{0}' with name '{1}' not found.,Document '{0}' avec le nom '{1}' introuvable.
+Document Missing,Document manquant
+Drummondville,Drummondville
+Erreur,Erreur
+Erreur Serveur,Erreur serveur
+Erreur d'importation,Erreur d'importation
+Erreur de communication lors de la mise en file d'attente de l'importation :,Erreur de communication lors de la mise en file d'attente de l'importation :
+Erreur de communication lors de la mise en file d'attente de la comparaison :,Erreur de communication lors de la mise en file d'attente de la comparaison :
+Error loading ConnectWise warehouses:,Erreur lors du chargement des entrepôts ConnectWise :
+Error mapping data row to child table: {0}. Check your CSV/SQL column names and data types.,Erreur lors du mappage de la ligne de données vers la table enfant : {0}. Vérifiez les noms de colonnes et types de données de votre CSV/SQL.
+Error navigating or refreshing Inventory Count:,Erreur lors de la navigation ou du rafraîchissement du comptage d'inventaire :
+Error: CSV file '{0}' not found at '{1}'. Please check 'Inventory Count Settings'.,Erreur : fichier CSV '{0}' introuvable à l'emplacement '{1}'. Veuillez vérifier les paramètres de comptage d'inventaire.
+Example: SELECT Location, Item_ID, QOH FROM your_inventory_table,Exemple : SELECT Location, Item_ID, QOH FROM votre_table_inventaire
+Expected_qty,Quantité attendue
+ExtendedCost,Coût étendu
+Failed to fetch ConnectWise Type Adjustments. Check logs for details.,Échec de la récupération des types d'ajustement ConnectWise. Vérifiez les logs pour plus de détails.
+File Not Found,Fichier introuvable
+Form Name (Date automatically added),Nom du formulaire (date ajoutée automatiquement)
+Frappe Support,Support Frappe
+IV_Audit_RecID,IV_Audit_RecID
+IV_Item_RecID,IV_Item_RecID
+Import Error,Erreur d'importation
+Import Source Type,Type de source d'importation
+Import Status,Statut d'importation
+Importation de l'inventaire virtuel terminée.,Importation de l'inventaire virtuel terminée.
+Importing virtual inventory for '{0}'...,Importation de l'inventaire virtuel pour '{0}'...
+Inv_difference,Différence d'inventaire
+Inv_difference_sn,Différence d'inventaire SN
+Inv_physical_items,Articles physiques inventoriés
+Inv_virtual_items,Articles virtuels inventoriés
+Invalid Source Type,Type de source invalide
+Invalid import source type selected in 'Inventory Count Settings'. Please choose 'CSV' or 'SQL Database'.,Type de source d'importation invalide sélectionné dans les paramètres de comptage d'inventaire. Veuillez choisir 'CSV' ou 'Base de données SQL'.
+Inventory Count,Comptage d'inventaire
+Inventory Count Settings,Paramètres de comptage d'inventaire
+Inventory Difference,Différence d'inventaire
+Inventory difference to Apply,Différence d'inventaire à appliquer
+Item_ID,ID article
+L'importation de l'inventaire virtuel a démarré en arrière-plan. Cela peut prendre un certain temps.,L'importation de l'inventaire virtuel a démarré en arrière-plan. Cela peut prendre un certain temps.
+L'importation de l'inventaire virtuel a échoué :,L'importation de l'inventaire virtuel a échoué :
+LastTransactionDate,Date de la dernière transaction
+Log out,Déconnexion
+Missing SQL connection details (Host, Database, Username, or Query) in 'Inventory Count Settings'.,Détails de connexion SQL manquants (hôte, base de données, nom d'utilisateur ou requête) dans les paramètres de comptage d'inventaire.
+Missing Warehouse,Entrepôt manquant
+Network Error,Erreur réseau
+No Details to Push,Aucun détail à envoyer
+No Items,Aucun article
+No confirmed inventory differences found to push to ConnectWise (or quantities match).,Aucune différence d'inventaire confirmée à envoyer à ConnectWise (ou les quantités correspondent).
+No items to push.,Aucun article à envoyer.
+No valid inventory differences could be prepared for ConnectWise push.,Aucune différence d'inventaire valide n'a pu être préparée pour l'envoi à ConnectWise.
+No valid items to push after filtering and lookup.,Aucun article valide à envoyer après filtrage et recherche.
+Numéro de série,Numéro de série
+PickedNotInvoiced,Prélevé non facturé
+PickedNotInvoicedCost,Coût prélevé non facturé
+PickedNotShipped,Prélevé non expédié
+PickedNotShippedCost,Coût prélevé non expédié
+Produit,Produit
+QOH,Quantité en stock
+QOH+PickedNotInvoiced,Stock + prélevé non facturé
+QOH+PickedNotShipped,Stock + prélevé non expédié
+QOH+PickedNotShipped+PickedNotInvoiced,Stock + prélevé non expédié + prélevé non facturé
+Qty,Quantité
+Qty Calculation,Calcul de quantité
+Quantité,Quantité
+Quantité différente,Quantité différente
+Remove/Add,Retirer/Ajouter
+SNList,Liste SN
+SQL Connect Success,Connexion SQL réussie
+SQL Database,Base de données SQL
+SQL Database Error: {0}. Check your connection details and query in 'Inventory Count Settings'.,Erreur base de données SQL : {0}. Vérifiez vos détails de connexion et la requête dans les paramètres de comptage d'inventaire.
+SQL Database Name,Nom de la base de données SQL
+SQL Details Missing,Détails SQL manquants
+SQL Error,Erreur SQL
+SQL Host,Hôte SQL
+SQL Import Failed,Échec de l'importation SQL
+SQL Load Success,Chargement SQL réussi
+SQL Password,Mot de passe SQL
+SQL Port,Port SQL
+SQL Query,Requête SQL
+SQL Username,Nom d'utilisateur SQL
+Scanned Items,Articles scannés
+Select where to import virtual inventory data from.,Sélectionnez la source d'importation des données d'inventaire virtuel.
+SelectedCost,Coût sélectionné
+Serial Numbers,Numéros de série
+Server communication error for ConnectWise warehouses:,Erreur de communication serveur pour les entrepôts ConnectWise :
+Settings Missing,Paramètres manquants
+ShortDescription,Description courte
+Skipped,Ignoré
+Successfully connected to SQL database: {0} on {1}:{2},Connexion réussie à la base SQL : {0} sur {1}:{2}
+Successfully loaded data from CSV: {0},Données chargées avec succès depuis le CSV : {0}
+Successfully loaded data from SQL query.,Données chargées avec succès depuis la requête SQL.
+System Health,État du système
+User Settings,Paramètres utilisateur
+Vendor_Name,Nom du fournisseur
+Vendor_RecID,Vendor_RecID
+Veuillez Choisir un type d'ajustement et confirmer les différences d'inventaire.,Veuillez choisir un type d'ajustement et confirmer les différences d'inventaire.
+Veuillez entrer un code avant d'appuyer sur Entrée.,Veuillez entrer un code avant d'appuyer sur Entrée.
+Veuillez scanner ou ajouter au moins un article dans l'inventaire physique pour pouvoir soumettre.,Veuillez scanner ou ajouter au moins un article dans l'inventaire physique pour pouvoir soumettre.
+Virtual Inventory,Inventaire virtuel
+Virtual Inventory Import Settings,Paramètres d'importation de l'inventaire virtuel
+Warehouse Bin,Bac d'entrepôt
+Warehouse is not set in the Inventory Count document. Cannot proceed with ConnectWise push.,L'entrepôt n'est pas défini dans le document de comptage d'inventaire. Impossible de poursuivre l'envoi ConnectWise.
+Warehouse_Bin_RecID,Warehouse_Bin_RecID
+Warehouse_RecID,Warehouse_RecID
+Workspace Settings,Paramètres de l'espace de travail
+difference_reason,Raison de la différence
+e.g., test.csv (for file in inv_count app folder) or path/to/your_file.csv,ex. test.csv (pour un fichier dans le dossier inv_count) ou chemin/vers/votre_fichier.csv
+physical_qty,quantité physique
+virtual_qty,quantité virtuelle
+À faire,À faire
+Échec de la mise en file d'attente de la tâche d'importation.,Échec de la mise en file d'attente de la tâche d'importation.
