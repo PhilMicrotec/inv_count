@@ -1,75 +1,144 @@
-About,A Propos,
-Amended From,Modifié Depuis,
-Apps,Apps,
-Back,Retour,
-Bin,Bin,
-CSV,CSV,
-CSV File Path (relative to app folder),CSV File Path (relative to app folder),
-Category,Catégorie,
-Code,Code,
-Confirmed,Confirmé,
-Date,Date,
-Debug Mode,Mode de débogage,
-Description,Description,
-Erreur,Erreur,
-Erreur Serveur,Erreur Serveur,
-"Example: SELECT Location, Item_ID, QOH FROM your_inventory_table","Example: SELECT Location, Item_ID, QOH FROM your_inventory_table",
-Expected_qty,Quantité attendue,
-ExtendedCost,ExtendedCost,
-Frappe Support,Frappe Support,
-IV_Audit_RecID,IV_Audit_RecID,
-IV_Item_RecID,IV_Item_RecID,
-Import Source Type,Type de source d'importation,
-Inv_difference,Inv_difference,
-Inv_physical_items,Inv_physical_items,
-Inv_virtual_items,Inv_virtual_items,
-Inventory Count,Compte d'inventaire,
-Inventory Count Settings,Paramètre Compte d'inventaire,
-Inventory difference to Apply,Différence d'inventaire à appliquer,
-Item_ID,Item_ID,
-Keyboard Shortcuts,Raccourcis clavier,
-LastTransactionDate,LastTransactionDate,
-Location,Lieu,
-Log out,Log out,
-PickedNotInvoiced,PickedNotInvoiced,
-PickedNotInvoicedCost,PickedNotInvoicedCost,
-PickedNotShipped,PickedNotShipped,
-PickedNotShippedCost,PickedNotShippedCost,
-QOH,QOH,
-Qty,Qty,
-Reload,Recharger,
-SNList,SNList,
-SQL Database,Base de données SQL,
-SQL Database Name,Nom de la BD SQL,
-SQL Host,Serveur SQL,
-SQL Password,Mot de passe SQL,
-SQL Port,SQL Port,
-SQL Query,SQL Query,
-SQL Username,SQL Username,
-Scanned Items,Items Scannés,
-Select where to import virtual inventory data from.,Sélectionnez d'où importer les données d'inventaire virtuel.,
-SelectedCost,SelectedCost,
-Session Defaults,Session par défaut,
-Settings,Paramètres,
-ShortDescription,ShortDescription,
-System Health,System Health,
-System Manager,Responsable Système,
-Toggle Full Width,Changer l&#39;affichage en pleine largeur,
-Toggle Theme,Basculer le thème,
-User Settings,User Settings,
-Vendor_Name,Vendor_Name,
-Vendor_RecID,Vendor_RecID,
-Veuillez confirmer toutes les différences d'inventaire en cochant la case 'Confirmé' dans chaque ligne.,Veuillez confirmer toutes les différences d'inventaire en cochant la case 'Confirmé' dans chaque ligne.,
-Veuillez entrer un code avant d'appuyer sur Entrée.,Veuillez entrer un code avant d'appuyer sur Entrée.,
-View Website,Voir Le Site Web,
-Virtual Inventory,Virtual Inventory,
-Virtual Inventory Import Settings,Virtual Inventory Import Settings,
-Warehouse,Entrepôt,
-Warehouse Bin,Warehouse Bin,
-Warehouse_Bin_RecID,Warehouse_Bin_RecID,
-Warehouse_RecID,Warehouse_RecID,
-Workspace Settings,Workspace Settings,
-difference_reason,difference_reason,
-"e.g., test.csv (for file in inv_count app folder) or path/to/your_file.csv","e.g., test.csv (for file in inv_count app folder) or path/to/your_file.csv",
-physical_qty,physical_qty,
-virtual_qty,virtual_qty,
+Le document '{0}' est introuvable. Veuillez d'abord configurer vos paramètres d'importation.
+,
+Identifiants API manquants
+Type d'ajustement
+Une erreur est survenue lors de l'importation : {0}
+Une erreur est survenue lors de l'appel API pour récupérer les types d'ajustement.
+Une erreur est survenue lors de l'appel API de poussée ConnectWise. Vérifiez la console du navigateur et les journaux Frappe pour plus de détails.
+Une erreur inattendue est survenue lors de l'importation SQL : {0}
+Une réponse inattendue a été reçue du serveur.
+Applications
+Article non trouvé dans l'inventaire physique
+Article non trouvé dans l'inventaire virtuel
+Retour
+Emplacement (pour un bac ou une étagère de rangement)
+CSV
+Chemin du fichier CSV (relatif au dossier de l'application)
+Le chemin du fichier CSV n'est pas spécifié dans les 'Paramètres du comptage d'inventaire'.
+Chargement CSV réussi
+Chemin CSV manquant
+Code
+Comparaison des inventaires terminée avec succès.
+Échec de la comparaison :
+Les identifiants API ConnectWise (URL API, ID d'entreprise, Clé publique, Clé privée, ID client) ne sont pas entièrement configurés dans les 'Paramètres du comptage d'inventaire'. Veuillez les configurer.
+Erreur de poussée ConnectWise
+URL API ConnectWise
+ID client ConnectWise
+ID d'entreprise ConnectWise
+Clé privée ConnectWise
+Clé publique ConnectWise
+Paramètres ConnectWise
+Erreur de mappage de données
+Date
+Mode débogage
+Paramètres développeur
+Document '{0}' introuvable.
+Document '{0}' avec le nom '{1}' introuvable.
+Document manquant
+Drummondville
+Erreur
+Erreur serveur
+Erreur d'importation
+Erreur de communication lors de la mise en file d'attente de l'importation :
+Erreur de communication lors de la mise en file d'attente de la comparaison :
+Erreur lors du chargement des entrepôts ConnectWise :
+Erreur lors du mappage de la ligne de données à la table enfant : {0}. Vérifiez les noms de colonnes et les types de données de votre CSV/SQL.
+Erreur lors de la navigation ou de l'actualisation du comptage d'inventaire :
+Erreur : Le fichier CSV '{0}' est introuvable à '{1}'. Veuillez vérifier les 'Paramètres du comptage d'inventaire'.
+Exemple : SELECT Emplacement, ID_Article, QEH FROM votre_table_inventaire
+Qté attendue
+Coût étendu
+Échec de la récupération des ajustements de type ConnectWise. Vérifiez les journaux pour plus de détails.
+Fichier introuvable
+Nom du formulaire (Date ajoutée automatiquement)
+Soutien Frappe
+ID_Enreg_Audit_IV
+ID_Enreg_Article_IV
+Erreur d'importation
+Type de source d'importation
+Statut d'importation
+Importation de l'inventaire virtuel terminée.
+Importation de l'inventaire virtuel pour '{0}'...
+Différence d'inventaire (nom de table)
+Numéros de série de différence d'inventaire (nom de table)
+Articles physiques d'inventaire (nom de table)
+Articles virtuels d'inventaire (nom de table)
+Type de source invalide
+Type de source d'importation invalide sélectionné dans les 'Paramètres du comptage d'inventaire'. Veuillez choisir 'CSV' ou 'Base de données SQL'.
+Comptage d'inventaire
+Paramètres du comptage d'inventaire
+Différence d'inventaire
+Différence d'inventaire à appliquer
+ID_Article
+L'importation de l'inventaire virtuel a démarré en arrière-plan. Cela peut prendre un certain temps.
+L'importation de l'inventaire virtuel a échoué :
+Date de dernière transaction
+Déconnexion
+Détails de connexion SQL manquants (Hôte, Base de données, Nom d'utilisateur ou Requête) dans les 'Paramètres du comptage d'inventaire'.
+Entrepôt manquant
+Erreur réseau
+Aucun détail à pousser
+Aucun article
+Aucune différence d'inventaire confirmée trouvée à pousser vers ConnectWise (ou les quantités correspondent).
+Aucun article à pousser.
+Aucune différence d'inventaire valide n'a pu être préparée pour la poussée ConnectWise.
+Aucun article valide à pousser après le filtrage et la recherche.
+Ramassé non facturé
+Coût ramassé non facturé
+Ramassé non expédié
+Coût ramassé non expédié
+Produit
+QED (Quantité en entrepôt)
+QED + Ramassé non facturé
+QED + Ramassé non expédié
+QED + Ramassé non expédié + Ramassé non facturé
+Qté
+Calcul de la Qté
+Quantité
+Quantité différente
+Retirer/Ajouter
+Liste_SN (Liste des numéros de série)
+Connexion SQL réussie
+Base de données SQL
+Erreur de base de données SQL : {0}. Vérifiez vos détails de connexion et votre requête dans les 'Paramètres du comptage d'inventaire'.
+Nom de la base de données SQL
+Détails SQL manquants
+Erreur SQL
+Hôte SQL
+Échec de l'importation SQL
+Chargement SQL réussi
+Mot de passe SQL
+Port SQL
+Requête SQL
+Nom d'utilisateur SQL
+Articles scannés
+Sélectionnez l'endroit d'où importer les données d'inventaire virtuel.
+Coût sélectionné
+Numéro de série
+Numéros de série
+Erreur de communication serveur pour les entrepôts ConnectWise :
+Paramètres manquants
+Description courte
+Ignoré
+Connexion à la base de données SQL réussie : {0} sur {1}:{2}
+Données chargées avec succès à partir du CSV : {0}
+Données chargées avec succès à partir de la requête SQL.
+Santé du système
+Paramètres utilisateur
+Nom_Fournisseur
+ID_Enreg_Fournisseur
+Veuillez choisir un type d'ajustement et confirmer les différences d'inventaire.
+Veuillez entrer un code avant d'appuyer sur Entrée.
+Veuillez scanner ou ajouter au moins un article dans l'inventaire physique pour pouvoir soumettre.
+Inventaire virtuel
+Paramètres d'importation de l'inventaire virtuel
+Emplacement d'entrepôt
+L'entrepôt n'est pas configuré dans le document de comptage d'inventaire. Impossible de procéder à la poussée ConnectWise.
+ID_Enreg_Emplacement_Entrepôt
+ID_Enreg_Entrepôt
+Paramètres de l'espace de travail
+Raison de la différence
+ex. test.csv (pour fichier dans le dossier de l'app inv_count) ou chemin/vers/votre_fichier.csv
+Qté physique
+Qté virtuelle
+Échec de la mise en file d'attente de la tâche d'importation.
