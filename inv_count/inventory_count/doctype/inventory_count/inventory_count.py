@@ -528,15 +528,15 @@ def get_connectwise_warehouses_and_bins():
                     # Construct the URL for a specific bin
                     bins_endpoint = f"{warehouse_bins_base_endpoint}?conditions=warehouse/id={warehouse_id}" 
                     
-                    frappe.log_error(f"ConnectWise: Fetching bins for '{warehouse_name}' from: {bins_endpoint}", "ConnectWise Debug")
+                    #frappe.log_error(f"ConnectWise: Fetching bins for '{warehouse_name}' from: {bins_endpoint}", "ConnectWise Debug")
                     bins_response = requests.get(bins_endpoint, headers=headers, timeout=15)
                     bins_response.raise_for_status() # Raise an exception for HTTP errors (4xx or 5xx)
                     
                     connectwise_bins_data = None
                     try:
                         connectwise_bins_data = bins_response.json()
-                        frappe.log_error(f"ConnectWise: Bins data type for '{warehouse_name}': {type(connectwise_bins_data)}", "ConnectWise Debug")
-                        frappe.log_error(f"ConnectWise: Bins JSON for '{warehouse_name}' (first 500 chars): {json.dumps(connectwise_bins_data, indent=2)[:500]}...", "ConnectWise Debug")
+                        #frappe.log_error(f"ConnectWise: Bins data type for '{warehouse_name}': {type(connectwise_bins_data)}", "ConnectWise Debug")
+                        #frappe.log_error(f"ConnectWise: Bins JSON for '{warehouse_name}' (first 500 chars): {json.dumps(connectwise_bins_data, indent=2)[:500]}...", "ConnectWise Debug")
                     except json.JSONDecodeError:
                         frappe.log_error(f"ConnectWise: Bins API for '{warehouse_name}' did not return valid JSON. Raw text: {bins_response.text}", "ConnectWise Bins JSON Error")
                         warehouse_bin_options_map[warehouse_name] = []
