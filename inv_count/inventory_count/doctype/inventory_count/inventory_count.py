@@ -81,7 +81,7 @@ def import_data_with_pandas(inventory_count_name):
                 conn_str = f"DRIVER={{ODBC Driver 17 for SQL Server}};SERVER={sql_host},{int(sql_port)};DATABASE={sql_database};UID={sql_username};PWD={sql_password};TrustServerCertificate=yes;Encrypt=yes"
                 conn = pyodbc.connect(conn_str)
                 frappe.msgprint(_("Successfully connected to SQL database: {0} on {1}:{2}").format(sql_database, sql_host, sql_port), title=_("SQL Connect Success"), indicator='green')
-                df = pd.read_sql(sql_query, conn)
+                df = pd.read_sql_query(sql_query, conn)
                 conn.close()
                 frappe.msgprint(_("Successfully loaded data from SQL query."), title=_("SQL Load Success"), indicator='green')
 
