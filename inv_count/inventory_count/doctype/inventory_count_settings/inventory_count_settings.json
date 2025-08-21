@@ -168,7 +168,7 @@
  "index_web_pages_for_search": 1,
  "issingle": 1,
  "links": [],
- "modified": "2025-06-20 14:21:28.741979",
+ "modified": "2025-08-21 08:21:31.033218",
  "modified_by": "Administrator",
  "module": "Inventory Count",
  "name": "Inventory Count Settings",
@@ -181,6 +181,16 @@
    "print": 1,
    "read": 1,
    "role": "System Manager",
+   "share": 1,
+   "write": 1
+  },
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "print": 1,
+   "read": 1,
+   "role": "All",
    "share": 1,
    "write": 1
   }
