@@ -70,7 +70,7 @@ def import_data_with_pandas(inventory_count_name):
             sql_port = settings_doc.sql_port
             sql_database = settings_doc.sql_database
             sql_username = settings_doc.sql_username
-            sql_password = settings_doc.sql_password
+            sql_password = settings_doc.get_password('sql_password')
             sql_query = settings_doc.sql_query
 
             # These are marked as required in the DocType, but a quick check here is good too
@@ -78,7 +78,7 @@ def import_data_with_pandas(inventory_count_name):
                 frappe.throw(_("Missing SQL connection details (Host, Database, Username, or Query) in 'Inventory Count Settings'."), title=_("SQL Details Missing"))
 
             try:
-                conn_str = f"DRIVER={{ODBC Driver 17 for SQL Server}};SERVER={sql_host},{int(sql_port)};DATABASE={sql_database};UID={sql_username};PWD={sql_password};TrustServerCertificate=yes;Encrypt=yes"
+                conn_str = f"DRIVER={{ODBC Driver 17 for SQL Server}};SERVER={sql_host},{sql_port};DATABASE={sql_database};UID={sql_username};PWD={sql_password};TrustServerCertificate=yes;Encrypt=yes"
                 conn = pyodbc.connect(conn_str)
                 frappe.msgprint(_("Successfully connected to SQL database: {0} on {1}:{2}").format(sql_database, sql_host, sql_port), title=_("SQL Connect Success"), indicator='green')
                 df = pd.read_sql_query(sql_query, conn)
