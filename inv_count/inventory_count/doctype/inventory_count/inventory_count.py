@@ -101,6 +101,8 @@ def import_data_with_pandas(inventory_count_name):
         # Clear the childtable before adding new entries
         inventory_count_doc.set(child_table_field_name, [])
 
+        frappe.msgprint(_('Child table cleared and ready for new entries.'))
+
         qoh_calculation_type = settings_doc.get('qty_calculation_type', 'QOH + Picked') 
 
         # Iterate through each row of the DataFrame and add to the childtable
@@ -147,10 +149,11 @@ def import_data_with_pandas(inventory_count_name):
 
 
         inventory_count_doc.save()
+        frappe.msgprint(_('Inventory Count document updated successfully.'))
         frappe.db.commit() # Ensure changes are persisted in the database
+        frappe.msgprint(_('Child tables committed successfully.'))
 
         return {"status": "success", "message": _("Import completed successfully. {0} items imported.").format(len(inventory_count_doc.get(child_table_field_name)))} # This is a translatable user-facing message
-        #frappe.publish_realtime("Import Complete") # This is an event name, not a translatable user-facing message
 
     except Exception as e:
         frappe.db.rollback() # Rollback changes in case of error
