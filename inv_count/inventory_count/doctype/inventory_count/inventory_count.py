@@ -201,10 +201,8 @@ def compare_child_tables(doc_name):
             
             # If physical items should *also* be filtered by category:
             physical_items_to_compare = [
-                item for item in all_physical_items if item.get("category") == main_category_filter # Assuming physical items also have a category field
+                item for item in all_physical_items 
             ]
-            # If physical items should *not* be filtered by category (compare all physical against filtered virtual):
-            # physical_items_to_compare = all_physical_items # Original behavior if no category field on physical
         else:
             physical_items_to_compare = all_physical_items
             virtual_items_to_compare = all_virtual_items
@@ -320,6 +318,8 @@ def compare_child_tables(doc_name):
             description_virtual = description_virtual_item_map.get(item_code, "")
             difference = 0 - virtual_qty_int # Item found in virtual but not in physical (in this comparison scope)
 
+            physical_qty_int = physical_items_map.get(item_code, 0)
+
             bin_from_virtual = virtual_item_bin_map.get(item_code, "")
 
             # Always iterate to find existing row now, as we don't clear the table
@@ -332,7 +332,7 @@ def compare_child_tables(doc_name):
             if existing_row_diff:
                 # Update existing row
                 existing_row_diff.description = description_virtual
-                existing_row_diff.physical_qty = 0
+                existing_row_diff.physical_qty = physical_qty_int
                 existing_row_diff.virtual_qty = virtual_qty_int
                 existing_row_diff.difference_qty = difference
                 existing_row_diff.difference_reason = _("Article non trouvé dans l'inventaire physique")
@@ -343,7 +343,7 @@ def compare_child_tables(doc_name):
                 new_diff_item = doc.append("inv_difference", {})
                 new_diff_item.item_code = item_code
                 new_diff_item.description = description_virtual
-                new_diff_item.physical_qty = 0
+                new_diff_item.physical_qty = physical_qty_int
                 new_diff_item.virtual_qty = virtual_qty_int
                 new_diff_item.difference_qty = difference
                 new_diff_item.difference_reason = _("Article non trouvé dans l'inventaire physique")
@@ -712,19 +712,19 @@ def push_confirmed_differences_to_connectwise(doc_name):
 
         try:
             # Step 1: Create the main inventory adjustment (uncommented this part)
-            #response = requests.post(adjustments_api_endpoint, headers=headers, data=json.dumps(main_adjustment_payload), timeout=60)
-            #response.raise_for_status() # Raise an exception for bad status codes
+            response = requests.post(adjustments_api_endpoint, headers=headers, data=json.dumps(main_adjustment_payload), timeout=60)
+            response.raise_for_status() # Raise an exception for bad status codes
 
-            #parentId = response.json().get('id') # Get the ID of the created adjustment
+            parentId = response.json().get('id') # Get the ID of the created adjustment
 
-            #print(f"ConnectWise: Created adjustment with ID {parentId}.")
+            print(f"ConnectWise: Created adjustment with ID {parentId}.")
 
             # Step 2: Iterate and send each adjustment detail individually
             for detail in adjustment_details_list:
-                #adjustments_details_api_endpoint = f"{connectwise_api_url}/procurement/adjustments/{parentId}/details"
+                adjustments_details_api_endpoint = f"{connectwise_api_url}/procurement/adjustments/{parentId}/details"
                 try:
-                    #details_response = requests.post(adjustments_details_api_endpoint, headers=headers, data=json.dumps(detail), timeout=60)
-                    #details_response.raise_for_status() # Raise an exception for bad status codes
+                    details_response = requests.post(adjustments_details_api_endpoint, headers=headers, data=json.dumps(detail), timeout=60)
+                    details_response.raise_for_status() # Raise an exception for bad status codes
                     print(json.dumps(detail))
                     pushed_count += 1
 
