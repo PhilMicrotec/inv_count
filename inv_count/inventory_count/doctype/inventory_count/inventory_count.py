@@ -432,21 +432,6 @@ def compare_child_tables(doc_name):
         return {"status": "error", "message": str(e)}
 
 
-# --- WHITELISTED WRAPPER FUNCTIONS FOR ENQUEUEING ---
-@frappe.whitelist()
-def enqueue_import_data(inventory_count_name):
-    job = frappe.enqueue( # Store the Job object in a variable 'job'
-        method='inv_count.inventory_count.doctype.inventory_count.inventory_count.import_data_with_pandas',
-        queue='short',       # Use 'long' queue for potentially long-running imports
-        timeout=300,      # Set a generous timeout (e.g., 15000 seconds = ~4 hours)
-        is_async=True,
-        # Arguments to pass to the actual `import_data_with_pandas` function
-        inventory_count_name=inventory_count_name
-    )
-    # IMPORTANT: Return a dictionary containing the job's ID (which is a string, hence JSON serializable)
-    return {'job_id': job.id}
-
-
 # Get ConnectWise Warehouses and Bins
 @frappe.whitelist()
 def get_connectwise_warehouses_and_bins(): 
