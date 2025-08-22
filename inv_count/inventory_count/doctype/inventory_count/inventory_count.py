@@ -108,7 +108,7 @@ def import_data_with_pandas(inventory_count_name):
         # Iterate through each row of the DataFrame and add to the childtable
         for index, row in df.iterrows():
             child_item = inventory_count_doc.append(child_table_field_name, {})
-            
+            frappe.msgprint(_('Processing row...'))
             # Mappage des colonnes du DataFrame aux champs de la childtable 'inv_virtual_items'
             # Ensure column names from your CSV/SQL query match these
             try:
@@ -147,7 +147,7 @@ def import_data_with_pandas(inventory_count_name):
                 frappe.log_error(f"Error mapping data row: {row}. Error: {e}", "Inventory Count Data Mapping Error") # Internal log, not for translation
                 frappe.throw(_("Error mapping data row to child table: {0}. Check your CSV/SQL column names and data types.").format(e), title=_("Data Mapping Error"))
 
-
+        frappe.msgprint(_('Now saving...'))
         inventory_count_doc.save()
         frappe.msgprint(_('Inventory Count document updated successfully.'))
         frappe.db.commit() # Ensure changes are persisted in the database
