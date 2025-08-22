@@ -62,7 +62,6 @@ def import_data_with_pandas(inventory_count_name):
                 frappe.throw(_("Error: CSV file '{0}' not found at '{1}'. Please check 'Inventory Count Settings'.").format(csv_file_path_relative, csv_full_path), title=_("File Not Found"))
             
             df = pd.read_csv(csv_full_path, encoding='iso-8859-1')
-            frappe.msgprint(_("Successfully loaded data from CSV: {0}").format(csv_full_path), title=_("CSV Load Success"), indicator='green')
 
         elif import_source_type == "SQL Database":
             # Retrieve SQL connection details from the Settings DocType
@@ -80,10 +79,8 @@ def import_data_with_pandas(inventory_count_name):
             try:
                 conn_str = f"DRIVER={{ODBC Driver 17 for SQL Server}};SERVER={sql_host},{sql_port};DATABASE={sql_database};UID={sql_username};PWD={sql_password};TrustServerCertificate=yes;Encrypt=yes"
                 conn = pyodbc.connect(conn_str)
-                frappe.msgprint(_("Successfully connected to SQL database: {0} on {1}:{2}").format(sql_database, sql_host, sql_port), title=_("SQL Connect Success"), indicator='green')
                 df = pd.read_sql_query(sql_query, conn)
                 conn.close()
-                frappe.msgprint(_("Successfully loaded data from SQL query."), title=_("SQL Load Success"), indicator='green')
 
             except pyodbc.Error as e:
                 frappe.log_error(f"SQL Database connection/query error: {e}", "Inventory Count SQL Import Error") # Internal log, not for translation
@@ -101,14 +98,11 @@ def import_data_with_pandas(inventory_count_name):
         # Clear the childtable before adding new entries
         inventory_count_doc.set(child_table_field_name, [])
 
-        frappe.msgprint(_('Child table cleared and ready for new entries.'))
-
         qoh_calculation_type = settings_doc.get('qty_calculation_type', 'QOH + Picked') 
 
         # Iterate through each row of the DataFrame and add to the childtable
         for index, row in df.iterrows():
             child_item = inventory_count_doc.append(child_table_field_name, {})
-            frappe.msgprint(_('Processing row...'))
             # Mappage des colonnes du DataFrame aux champs de la childtable 'inv_virtual_items'
             # Ensure column names from your CSV/SQL query match these
             try:
@@ -147,11 +141,8 @@ def import_data_with_pandas(inventory_count_name):
                 frappe.log_error(f"Error mapping data row: {row}. Error: {e}", "Inventory Count Data Mapping Error") # Internal log, not for translation
                 frappe.throw(_("Error mapping data row to child table: {0}. Check your CSV/SQL column names and data types.").format(e), title=_("Data Mapping Error"))
 
-        frappe.msgprint(_('Now saving...'))
         inventory_count_doc.save()
-        frappe.msgprint(_('Inventory Count document updated successfully.'))
         frappe.db.commit() # Ensure changes are persisted in the database
-        frappe.msgprint(_('Child tables committed successfully.'))
 
         return {"status": "success", "message": _("Import completed successfully. {0} items imported.").format(len(inventory_count_doc.get(child_table_field_name)))} # This is a translatable user-facing message
 
