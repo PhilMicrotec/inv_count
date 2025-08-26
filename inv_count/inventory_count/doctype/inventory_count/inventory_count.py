@@ -233,17 +233,25 @@ def compare_child_tables(doc_name):
         processed_difference_items = set()
 
         # --- MODIFIED: Store existing inv_difference_sn data to preserve 'to_do' ---
-        existing_sn_data_map = {} # Key: (product, serial_number), Value: {to_do: ..., other_fields: ...}
+        # Also, pre-populate the final list with existing rows that have a 'Remove/Add' status
+        existing_sn_data_map = {} 
+        preserved_sn_rows = []
+        preserved_sn_keys = set() # To ensure uniqueness for preserved rows
+
         for sn_row in doc.get("inv_difference_sn"):
-            key = (sn_row.get("product"), sn_row.get("serial_number"))
-            if key[0] and key[1]: # Ensure both product and serial_number exist
-                existing_sn_data_map[key] = {
+            sn_key = (sn_row.get("product"), sn_row.get("serial_number"))
+            if sn_key[0] and sn_key[1]: # Ensure both product and serial_number exist
+                existing_sn_data_map[sn_key] = {
                     "to_do": sn_row.get("to_do"),
                     # Add any other fields you want to preserve here
                 }
-        
-        # New list to build the updated inv_difference_sn content
-        updated_inv_difference_sn = []
+                # If an existing row has 'Add/Remove' status, we want to explicitly preserve it
+                if sn_row.get("to_do") == "Remove/Add":
+                    preserved_sn_rows.append(sn_row)
+                    preserved_sn_keys.add(sn_key) # Add to set to mark as seen
+
+        # Initialize updated_inv_difference_sn. We will populate this with new differences.
+        updated_inv_difference_sn_new_entries = []
         # --- END MODIFIED ---
 
         # --- Upsert logic for discrepancies based on Physical Items (from the items selected for comparison) ---
@@ -295,7 +303,7 @@ def compare_child_tables(doc_name):
                     for sn in serial_numbers:
                         sn_key = (item_code, sn)
                         
-                        # Create a new row (will be populated or updated in the final set)
+                        # Create a new row data (will be added to the temporary list)
                         new_sn_row_data = {
                             "product": item_code,
                             "serial_number": sn
@@ -306,7 +314,7 @@ def compare_child_tables(doc_name):
                             new_sn_row_data["to_do"] = existing_sn_data_map[sn_key]["to_do"]
                         # else: new_sn_row_data["to_do"] will default to whatever its default value is (usually None/empty)
                         
-                        updated_inv_difference_sn.append(new_sn_row_data)
+                        updated_inv_difference_sn_new_entries.append(new_sn_row_data)
                 # --- END MODIFIED ---
 
 
@@ -367,7 +375,7 @@ def compare_child_tables(doc_name):
                     if sn_key in existing_sn_data_map:
                         new_sn_row_data["to_do"] = existing_sn_data_map[sn_key]["to_do"]
                     
-                    updated_inv_difference_sn.append(new_sn_row_data)
+                    updated_inv_difference_sn_new_entries.append(new_sn_row_data)
             # --- END MODIFIED ---
 
 
@@ -393,20 +401,20 @@ def compare_child_tables(doc_name):
             doc.remove(row_to_remove)
 
         # --- MODIFIED: Final update of inv_difference_sn ---
-        # First, convert the list of dictionaries into a list of Frappe ChildTable rows
-        # This approach ensures uniqueness and handles updates/removals more robustly.
-        final_inv_difference_sn_rows = []
-        seen_sn_keys = set() # To ensure unique (product, serial_number) pairs
+        # Start the final list with all previously preserved 'Add/Remove' rows
+        final_inv_difference_sn_rows = list(preserved_sn_rows)
+        seen_sn_keys = set(preserved_sn_keys) # Initialize with keys of preserved rows
 
-        for sn_data in updated_inv_difference_sn:
+        # Now, iterate through the newly generated entries and add them if not already present (preserved)
+        for sn_data in updated_inv_difference_sn_new_entries:
             sn_key = (sn_data["product"], sn_data["serial_number"])
-            if sn_key not in seen_sn_keys: # Only add if not already processed in this run
+            if sn_key not in seen_sn_keys: # Only add if not already processed in this run (or preserved)
+                # Create a new Frappe child table row
                 new_row = doc.append("inv_difference_sn", sn_data)
                 final_inv_difference_sn_rows.append(new_row)
                 seen_sn_keys.add(sn_key)
 
         # Set the entire child table with the new list of rows.
-        # This will effectively update existing ones, add new, and remove old ones.
         doc.set("inv_difference_sn", final_inv_difference_sn_rows)
         # --- END MODIFIED ---
 
@@ -725,7 +733,6 @@ def push_confirmed_differences_to_connectwise(doc_name):
                 try:
                     details_response = requests.post(adjustments_details_api_endpoint, headers=headers, data=json.dumps(detail), timeout=60)
                     details_response.raise_for_status() # Raise an exception for bad status codes
-                    print(json.dumps(detail))
                     pushed_count += 1
 
                 except requests.exceptions.RequestException as detail_req_err:
@@ -747,10 +754,6 @@ def push_confirmed_differences_to_connectwise(doc_name):
 
             # Mark all successfully pushed items as pushed in Frappe
             for item in confirmed_items_to_push:
-                # You'll need to refine this to only mark the ones whose details were truly pushed
-                # This might involve comparing item.item_code with the successfully pushed details
-                # For simplicity here, assuming if the overall process reaches this point, you'd mark them.
-                # A more robust solution would track individual successes.
                 if hasattr(item, 'pushed_to_connectwise'):
                     item.db_set('pushed_to_connectwise', 1) 
             
