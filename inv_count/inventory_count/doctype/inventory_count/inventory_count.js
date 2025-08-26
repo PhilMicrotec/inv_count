@@ -525,10 +525,9 @@ function checkAllDifferencesConfirmed(frm, resolve, reject) {
         // Explicitly reject the submission.
         reject();
     } else {
-        // If all relevant differences are confirmed, prompt the user to push to ConnectWise.
+        // If all relevant differences are confirmed, push to ConnectWise.
             if (debug_mode) console.log("All differences confirmed. Proceeding to push to ConnectWise.");
-            console.log("Pushing confirmed differences to ConnectWise...");
-            
+                        
                 frappe.call({
                     method: 'inv_count.inventory_count.doctype.inventory_count.inventory_count.push_confirmed_differences_to_connectwise',
                     args: {

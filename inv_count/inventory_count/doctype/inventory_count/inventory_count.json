@@ -23,7 +23,9 @@
   "column_break_ybrb",
   "adjustment_type",
   "reason",
+  "inventory_difference_to_apply",
   "inv_difference",
+  "serial_numbers",
   "inv_difference_sn"
  ],
  "fields": [
@@ -98,7 +100,7 @@
   {
    "fieldname": "inv_difference",
    "fieldtype": "Table",
-   "label": "Inventory difference to Apply",
+   "label": "Please review all difference here, if you can't find the product check the confirmation box. All products need to be confirmed",
    "options": "Inv_difference"
   },
   {
@@ -150,15 +152,25 @@
   {
    "fieldname": "inv_difference_sn",
    "fieldtype": "Table",
-   "label": "Serial Numbers",
+   "label": "If the product are serialized in connectwise you need to remove the \"lost\" serial number or add it if it's a positive correction",
    "options": "Inv_difference_sn"
+  },
+  {
+   "fieldname": "inventory_difference_to_apply",
+   "fieldtype": "Heading",
+   "label": "Inventory difference to Apply"
+  },
+  {
+   "fieldname": "serial_numbers",
+   "fieldtype": "Heading",
+   "label": "Serial Numbers"
   }
  ],
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "is_submittable": 1,
  "links": [],
- "modified": "2025-08-21 08:20:30.244021",
+ "modified": "2025-08-26 10:31:42.313745",
  "modified_by": "Administrator",
  "module": "Inventory Count",
  "name": "Inventory Count",

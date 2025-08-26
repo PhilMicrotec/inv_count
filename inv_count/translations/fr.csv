@@ -142,3 +142,12 @@ physical_qty,quantité physique
 virtual_qty,quantité virtuelle
 À faire,À faire
 Échec de la mise en file d'attente de la tâche d'importation.,Échec de la mise en file d'attente de la tâche d'importation.
+Compare Failed:,Échec de la comparaison :
+Erreur de communication lors de la mise en file d'attente de l'importation :,Erreur de communication lors de la mise en file d'attente de l'importation :
+Erreur de communication lors de la mise en file d'attente de la comparaison : Erreur de communication lors de la mise en file d'attente de la comparaison :
+Error loading ConnectWise warehouses:,Erreur lors du chargement des entrepôts ConnectWise :
+Error navigating or refreshing Inventory Count:,Erreur lors de la navigation ou du rafraîchissement du comptage d'inventaire :
+If the product are serialized in connectwise you need to remove the "lost" serial number or add it if it's a positive correction,Si les produits sont sérialisés dans ConnectWise vous devez supprimer le numéro de série "perdu" ou l'ajouter s'il s'agit d'une correction positive.
+Import completed successfully. {0} items imported.,Importation terminée avec succès. {0} articles importés.
+Please review all difference here if you can't find the product check the confirmation box. All products need to be confirmed,Veuillez examiner toutes les différences ici. Si vous ne trouvez pas le produit cochez la case de confirmation. Tous les produits doivent être confirmés.
+Server communication error for ConnectWise warehouses:,Erreur de communication serveur pour les entrepôts ConnectWise :
