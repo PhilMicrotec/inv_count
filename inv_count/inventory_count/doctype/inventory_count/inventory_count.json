@@ -19,6 +19,7 @@
   "inv_physical_items",
   "section_virtual_inventory",
   "column_break_wlqy",
+  "connectwise_inventory_snapshot",
   "inv_virtual_items",
   "inventory_difference_section",
   "column_break_ybrb",
@@ -94,7 +95,6 @@
   {
    "fieldname": "inv_virtual_items",
    "fieldtype": "Table",
-   "label": "Virtual Inventory",
    "options": "Inv_virtual_items",
    "read_only": 1
   },
@@ -170,13 +170,18 @@
    "fieldname": "scanned_items",
    "fieldtype": "Heading",
    "label": "Scanned Items"
+  },
+  {
+   "fieldname": "connectwise_inventory_snapshot",
+   "fieldtype": "Heading",
+   "label": "Connectwise Inventory Snapshot"
   }
  ],
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "is_submittable": 1,
  "links": [],
- "modified": "2025-08-27 12:14:18.727174",
+ "modified": "2025-08-27 12:17:08.425949",
  "modified_by": "Administrator",
  "module": "Inventory Count",
  "name": "Inventory Count",

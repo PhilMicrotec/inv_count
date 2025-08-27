@@ -129,7 +129,6 @@ Vendor_RecID,Vendor_RecID
 Veuillez Choisir un type d'ajustement et confirmer les différences d'inventaire.,Veuillez choisir un type d'ajustement et confirmer les différences d'inventaire.
 Veuillez entrer un code avant d'appuyer sur Entrée.,Veuillez entrer un code avant d'appuyer sur Entrée.
 Veuillez scanner ou ajouter au moins un article dans l'inventaire physique pour pouvoir soumettre.,Veuillez scanner ou ajouter au moins un article dans l'inventaire physique pour pouvoir soumettre.
-Virtual Inventory,Inventaire virtuel
 Virtual Inventory Import Settings,Paramètres d'importation de l'inventaire virtuel
 Warehouse Bin,Bac d'entrepôt
 Warehouse is not set in the Inventory Count document. Cannot proceed with ConnectWise push.,L'entrepôt n'est pas défini dans le document de comptage d'inventaire. Impossible de poursuivre l'envoi ConnectWise.
@@ -152,3 +151,4 @@ Import completed successfully. {0} items imported.,Importation terminée avec su
 Please review all difference here if you can't find the product check the confirmation box. All products need to be confirmed,Veuillez examiner toutes les différences ici. Si vous ne trouvez pas le produit cochez la case de confirmation. Tous les produits doivent être confirmés.
 Server communication error for ConnectWise warehouses:,Erreur de communication serveur pour les entrepôts ConnectWise :
 Green=Quantities Match | Red=Quantities Mismatch | Yellow=Not found in inventory or category,Vert=Quantités corresponds | Rouge=Quantités ne corresponds pas | Jaune=Non trouvé dans l'inventaire ou la catégorie
+Connectwise Inventory Snapshot,Instantané de l'inventaire Connectwise
