@@ -64,6 +64,10 @@ def import_data_with_pandas(inventory_count_name):
             df = pd.read_csv(csv_full_path, encoding='iso-8859-1')
 
         elif import_source_type == "SQL Database":
+            warehouse_id = int(inventory_count_doc.warehouse)
+            warehouse_bin_id = int(inventory_count_doc.warehouse_bin)
+            valuation_date = inventory_count_doc.date
+
             # Retrieve SQL connection details from the Settings DocType
             sql_host = settings_doc.sql_host
             sql_port = settings_doc.sql_port
@@ -71,6 +75,8 @@ def import_data_with_pandas(inventory_count_name):
             sql_username = settings_doc.sql_username
             sql_password = settings_doc.get_password('sql_password')
             sql_query = settings_doc.sql_query
+
+            sql_query = sql_query.replace("{warehouse_id}", str(warehouse_id)).replace("{warehouse_bin_id}", str(warehouse_bin_id)).replace("{valuation_date}", valuation_date)
 
             # These are marked as required in the DocType, but a quick check here is good too
             if not all([sql_host, sql_database, sql_username, sql_query]):
@@ -499,7 +505,7 @@ def get_connectwise_warehouses_and_bins():
                 frappe.log_error(f"ConnectWise: Skipping non-dictionary item in warehouse list: {warehouse}", "ConnectWise List Item Error")
                 continue # Skip if an item isn't a dictionary
 
-            warehouse_name = warehouse.get("name")
+            warehouse_name = warehouse.get("name") + " (" + str(warehouse.get("id")) + ")"
             warehouse_id = warehouse.get("id") # Keep ID if you need to fetch bins separately
 
             if warehouse_name:
@@ -530,13 +536,13 @@ def get_connectwise_warehouses_and_bins():
                     if isinstance(connectwise_bins_data, list):
                         # If it's a list (which is ideal for 'bins for a warehouse')
                         warehouse_bin_options_map[warehouse_name] = [
-                            bin_item.get("name") 
+                            bin_item.get("name") + " (" + str(bin_item.get("id")) + ")"
                             for bin_item in connectwise_bins_data 
                             if isinstance(bin_item, dict) and bin_item.get("name")
                         ]
                     elif isinstance(connectwise_bins_data, dict):
                         # If it's a single dictionary (like your example 'Magasin' bin)
-                        bin_name = connectwise_bins_data.get("name")
+                        bin_name = connectwise_bins_data.get("name") 
                         if bin_name:
                             warehouse_bin_options_map[warehouse_name] = [bin_name] # Store as a list containing one bin
                         else:
