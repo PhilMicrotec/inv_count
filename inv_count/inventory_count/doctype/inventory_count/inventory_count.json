@@ -15,6 +15,7 @@
   "category",
   "section_break_slsq",
   "code",
+  "scanned_items",
   "inv_physical_items",
   "section_virtual_inventory",
   "column_break_wlqy",
@@ -82,7 +83,7 @@
   {
    "fieldname": "inv_physical_items",
    "fieldtype": "Table",
-   "label": "Scanned Items",
+   "label": "Green=Quantities Match | Red=Quantities Mismatch | Yellow=Not found in inventory or category",
    "options": "Inv_physical_items"
   },
   {
@@ -164,13 +165,18 @@
    "fieldname": "serial_numbers",
    "fieldtype": "Heading",
    "label": "Serial Numbers"
+  },
+  {
+   "fieldname": "scanned_items",
+   "fieldtype": "Heading",
+   "label": "Scanned Items"
   }
  ],
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "is_submittable": 1,
  "links": [],
- "modified": "2025-08-26 11:08:50.475505",
+ "modified": "2025-08-27 12:14:18.727174",
  "modified_by": "Administrator",
  "module": "Inventory Count",
  "name": "Inventory Count",

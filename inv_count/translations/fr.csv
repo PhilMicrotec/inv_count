@@ -151,3 +151,4 @@ If the product are serialized in connectwise you need to remove the "lost" seria
 Import completed successfully. {0} items imported.,Importation terminée avec succès. {0} articles importés.
 Please review all difference here if you can't find the product check the confirmation box. All products need to be confirmed,Veuillez examiner toutes les différences ici. Si vous ne trouvez pas le produit cochez la case de confirmation. Tous les produits doivent être confirmés.
 Server communication error for ConnectWise warehouses:,Erreur de communication serveur pour les entrepôts ConnectWise :
+Green=Quantities Match | Red=Quantities Mismatch | Yellow=Not found in inventory or category,Vert=Quantités corresponds | Rouge=Quantités ne corresponds pas | Jaune=Non trouvé dans l'inventaire ou la catégorie
