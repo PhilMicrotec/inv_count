@@ -150,3 +150,4 @@ Please review all difference here if you can't find the product check the confir
 Server communication error for ConnectWise warehouses:,Erreur de communication serveur pour les entrepôts ConnectWise :
 Green=Quantities Match | Red=Quantities Mismatch | Yellow=Not found in inventory or category,Vert=Quantités corresponds | Rouge=Quantités ne corresponds pas | Jaune=Non trouvé dans l'inventaire ou la catégorie
 Connectwise Inventory Snapshot,Instantané de l'inventaire Connectwise
+Read Only | Click on a product to see more informations,Lecture seule | Cliquez sur un produit pour voir plus d'informations
