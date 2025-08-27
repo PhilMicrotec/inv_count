@@ -95,6 +95,7 @@
   {
    "fieldname": "inv_virtual_items",
    "fieldtype": "Table",
+   "label": "Read Only | Click on a product to see more informations",
    "options": "Inv_virtual_items",
    "read_only": 1
   },
@@ -181,7 +182,7 @@
  "index_web_pages_for_search": 1,
  "is_submittable": 1,
  "links": [],
- "modified": "2025-08-27 12:17:08.425949",
+ "modified": "2025-08-27 14:25:54.033110",
  "modified_by": "Administrator",
  "module": "Inventory Count",
  "name": "Inventory Count",
