@@ -141,14 +141,14 @@
    "fieldname": "qty",
    "fieldtype": "Data",
    "in_list_view": 1,
-   "label": "Quantit\u00e9"
+   "label": "Qty"
   }
  ],
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "istable": 1,
  "links": [],
- "modified": "2025-06-13 13:12:23.471760",
+ "modified": "2025-08-28 07:12:54.302397",
  "modified_by": "Administrator",
  "module": "Inventory Count",
  "name": "Inv_virtual_items",
