@@ -12,6 +12,7 @@ import requests
 import base64
 import json
 from frappe.utils import get_datetime, get_timestamp
+import re
 
 class InventoryCount(Document):
     pass
@@ -64,8 +65,11 @@ def import_data_with_pandas(inventory_count_name):
             df = pd.read_csv(csv_full_path, encoding='iso-8859-1')
 
         elif import_source_type == "SQL Database":
-            warehouse_id = int(inventory_count_doc.warehouse)
-            warehouse_bin_id = int(inventory_count_doc.warehouse_bin)
+
+            warehouse_id_split=inventory_count_doc.warehouse.split('(')[1]
+            warehouse_id = warehouse_id_split.split(')')[0]
+            warehouse_bin_id_split = inventory_count_doc.warehouse_bin.split('(')[1]
+            warehouse_bin_id = warehouse_bin_id_split.split(')')[0]
             valuation_date = inventory_count_doc.date
 
             # Retrieve SQL connection details from the Settings DocType
