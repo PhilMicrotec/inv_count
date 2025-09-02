@@ -80,7 +80,7 @@ def import_data_with_pandas(inventory_count_name):
             sql_password = settings_doc.get_password('sql_password')
             sql_query = settings_doc.sql_query
 
-            sql_query = sql_query.replace("{warehouse_id}", str(warehouse_id)).replace("{warehouse_bin_id}", str(warehouse_bin_id)).replace("{valuation_date}", valuation_date)
+            sql_query = sql_query.replace("{warehouse_id}", warehouse_id).replace("{warehouse_bin_id}", warehouse_bin_id).replace("{valuation_date}", valuation_date)
 
             # These are marked as required in the DocType, but a quick check here is good too
             if not all([sql_host, sql_database, sql_username, sql_query]):
