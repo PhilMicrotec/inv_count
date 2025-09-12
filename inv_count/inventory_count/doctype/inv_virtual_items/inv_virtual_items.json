@@ -134,7 +134,7 @@
   },
   {
    "fieldname": "snlist",
-   "fieldtype": "Data",
+   "fieldtype": "Small Text",
    "label": "SNList"
   },
   {
