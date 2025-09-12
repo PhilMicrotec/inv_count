@@ -70,7 +70,7 @@ def import_data_with_pandas(inventory_count_name):
             warehouse_id = warehouse_id_split.split(')')[0]
             warehouse_bin_id_split = inventory_count_doc.warehouse_bin.split('(')[1]
             warehouse_bin_id = warehouse_bin_id_split.split(')')[0]
-            valuation_date = inventory_count_doc.date.strftime('%Y-%m-%d')
+            valuation_date = inventory_count_doc.date.strftime('"%Y-%m-%d"')
 
             # Retrieve SQL connection details from the Settings DocType
             sql_host = settings_doc.sql_host
