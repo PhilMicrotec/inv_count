@@ -788,7 +788,7 @@ def push_confirmed_differences_to_connectwise(doc_name):
                     error_detail += f" - CW Error: {error_message} (Status: {req_err.response.status_code})"
                 except json.JSONDecodeError:
                     error_detail += f" - CW Raw Response: {req_err.response.text}"
-            frappe.log_error(error_detail, "ConnectWise Consolidated Push Request Error")
+            frappe.log_error(message=error_detail, title="ConnectWise Consolidated Push Request Error")
             failed_pushes.append(f"Consolidated Push: {error_detail}")
             print(error_detail) # Print to console for immediate visibility during dev
             return {"status": "error", "message": error_detail}
