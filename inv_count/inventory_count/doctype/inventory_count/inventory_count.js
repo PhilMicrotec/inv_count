@@ -522,7 +522,7 @@ function checkAllDifferencesConfirmed(frm, resolve, reject) {
         }
         
 
-        // Explicitly reject the submission.
+        python_request_in_progress(false); // Re-enable auto-update if it was disabled
         reject();
     } else {
         // If all relevant differences are confirmed, push to ConnectWise.
