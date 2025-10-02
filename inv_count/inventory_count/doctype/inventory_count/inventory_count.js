@@ -557,6 +557,7 @@ function checkAllDifferencesConfirmed(frm, resolve, reject) {
                             title: __('Error'),
                             indicator: 'red'
                         }, 15);
+                        console.log(r.message.debug);
                         reject();
                         python_request_in_progress(false); // Re-enable auto-update even if the API call fails
                     }

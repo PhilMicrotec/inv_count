@@ -566,13 +566,10 @@ def get_connectwise_warehouses_and_bins():
         }
 
     except requests.exceptions.HTTPError as e:
-        frappe.log_error(f"ConnectWise API HTTP Error: {e.response.status_code} - {e.response.text} - URL: {e.request.url}", "ConnectWise API Error")
         frappe.throw(f"Error fetching data from ConnectWise API: {e.response.status_code} - {e.response.text}", title="ConnectWise API Error")
     except requests.exceptions.RequestException as e:
-        frappe.log_error(f"ConnectWise API Connection Error: {e}", "ConnectWise API Error")
         frappe.throw(f"Connection error to ConnectWise API: {e}", title="Network Error")
     except Exception as e:
-        frappe.log_error(traceback.format_exc(), "General ConnectWise API Error")
         frappe.throw(f"An unexpected error occurred while fetching ConnectWise data: {e}", title="API Fetch Error")
 
 
@@ -685,9 +682,8 @@ def push_confirmed_differences_to_connectwise(doc_name):
                     match = re.search(r'\((\d+)\)$', item.bin)
                     if match:
                         bin_id = int(match.group(1))
-                    else:
-                        # Log a warning if bin format is unexpected but don't stop the process
-                        frappe.log_error(f"Could not parse Bin ID from '{item.bin}' for item '{item.item_code}'. Proceeding without bin.", "ConnectWise Push Warning")
+                    
+                       
 
                 adjustment_detail = {
                     'catalogItem': {
@@ -714,7 +710,6 @@ def push_confirmed_differences_to_connectwise(doc_name):
 
             except requests.exceptions.Timeout:
                 error_detail = f"Request to ConnectWise timed out for item '{item.item_code}' during product lookup."
-                frappe.log_error(error_detail, "ConnectWise Product Lookup Timeout Error")
                 failed_pushes.append(f"'{item.item_code}': {error_detail}")
             except requests.exceptions.RequestException as req_err:
                 error_detail = f"Failed to find product '{item.item_code}' due to API error: {req_err}"
@@ -725,11 +720,10 @@ def push_confirmed_differences_to_connectwise(doc_name):
                         error_detail += f" - CW Error: {error_message} (Status: {req_err.response.status_code})"
                     except json.JSONDecodeError:
                         error_detail += f" - CW Raw Response: {req_err.response.text}"
-                frappe.log_error(error_detail, "ConnectWise Product Lookup Request Error")
+
                 failed_pushes.append(f"'{item.item_code}': {error_detail}")
             except Exception as item_err:
                 error_detail = f"An unexpected error occurred during processing of '{item.item_code}': {item_err}"
-                frappe.log_error(error_detail, "ConnectWise Detail Creation Generic Error")
                 failed_pushes.append(f"'{item.item_code}': {error_detail}")
 
         if not adjustment_details_list:
@@ -774,11 +768,10 @@ def push_confirmed_differences_to_connectwise(doc_name):
                             error_detail += f" - CW Error: {error_message} (Status: {detail_req_err.response.status_code})"
                         except json.JSONDecodeError:
                             error_detail += f" - CW Raw Response: {detail_req_err.response.text}"
-                    frappe.log_error(error_detail, "ConnectWise Adjustment Detail Push Error")
                     failed_detail_pushes.append(error_detail)
                 except Exception as detail_err:
-                    error_detail = f"An unexpected error occurred during detail push for item '{detail.get('catalogItem', {}).get('identifier', 'N/A')}': {detail_err}"
-                    frappe.log_error(error_detail, "ConnectWise Adjustment Detail Push Generic Error")
+                    error_detail = f"Error Pushing to CW : {detail_err}"
+                    
                     failed_detail_pushes.append(error_detail)
 
 
@@ -795,10 +788,10 @@ def push_confirmed_differences_to_connectwise(doc_name):
                 return {"status": "success", "message": final_message}
         except requests.exceptions.Timeout:
             error_detail = f"Consolidated request to ConnectWise timed out after preparing {len(adjustment_details_list)} items."
-            frappe.log_error(error_detail, "ConnectWise Consolidated Push Timeout Error")
+           
             failed_pushes.append(f"Consolidated Push: {error_detail}")
             print(error_detail) # Print to console for immediate visibility during dev
-            return {"status": "error", "message": error_detail}
+            return {"status": "error", "message": error_detail, "debug": traceback.format_exc()}
         except requests.exceptions.RequestException as req_err:
             error_detail = f"Failed to push consolidated adjustment: {req_err}"
             if hasattr(req_err, 'response') and req_err.response is not None:
@@ -808,16 +801,14 @@ def push_confirmed_differences_to_connectwise(doc_name):
                     error_detail += f" - CW Error: {error_message} (Status: {req_err.response.status_code})"
                 except json.JSONDecodeError:
                     error_detail += f" - CW Raw Response: {req_err.response.text}"
-            frappe.log_error(message=error_detail, title="ConnectWise Consolidated Push Request Error")
             failed_pushes.append(f"Consolidated Push: {error_detail}")
             print(error_detail) # Print to console for immediate visibility during dev
-            return {"status": "error", "message": error_detail}
+            return {"status": "error", "message": error_detail, "debug": traceback.format_exc()}
         except Exception as push_err:
             error_detail = f"An unexpected error occurred during consolidated push: {push_err}"
-            frappe.log_error(error_detail, "ConnectWise Consolidated Push Generic Error")
             failed_pushes.append(f"Consolidated Push: {error_detail}")
             print(error_detail) # Print to console for immediate visibility during dev
-            return {"status": "error", "message": error_detail}
+            return {"status": "error", "message": error_detail, "debug": traceback.format_exc()}
 
         
     
@@ -826,9 +817,6 @@ def push_confirmed_differences_to_connectwise(doc_name):
         return {"status": "error", "message": "ConnectWise push process stopped due to a configuration or data error. Check messages for details."}
     except Exception as e:
         frappe.db.rollback() 
-        error_trace = traceback.format_exc()
-        frappe.log_error(error_trace, "Critical Error in push_confirmed_differences_to_connectwise function")
-        frappe.msgprint(_(f"An unexpected critical error occurred during the ConnectWise push process: {e}"), title=_("ConnectWise Push Error"), indicator='red')
         return {"status": "error", "message": str(e)}
     
 @frappe.whitelist()
@@ -868,8 +856,6 @@ def get_connectwise_type_adjustments():
 
         type_adjustments_endpoint = f"{connectwise_api_url}/procurement/adjustments/types"
 
-        frappe.log_error(f"ConnectWise: Fetching type adjustments from: {type_adjustments_endpoint}", "ConnectWise Debug")
-
         # Make the HTTP GET request to the ConnectWise API
         response = requests.get(type_adjustments_endpoint, headers=headers, timeout=15)
         response.raise_for_status() # Raise an exception for HTTP errors (4xx or 5xx)
@@ -878,8 +864,6 @@ def get_connectwise_type_adjustments():
         try:
             # Attempt to parse the JSON response
             connectwise_type_adjustments_data = response.json()
-            frappe.log_error(f"ConnectWise: Type adjustments data type: {type(connectwise_type_adjustments_data)}", "ConnectWise Debug")
-            frappe.log_error(f"ConnectWise: Type adjustments JSON (first 500 chars): {json.dumps(connectwise_type_adjustments_data, indent=2)[:500]}...", "ConnectWise Debug")
         except json.JSONDecodeError:
             # Log and throw an error if the response is not valid JSON
             frappe.log_error(f"ConnectWise: Type Adjustments API did not return valid JSON. Raw text: {response.text}", "ConnectWise JSON Error")
