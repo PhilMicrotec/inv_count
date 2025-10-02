@@ -625,10 +625,20 @@ def push_confirmed_differences_to_connectwise(doc_name):
         cw_adjustment_type_name_for_item = doc.adjustment_type # Correction type name from Frappe
         reason = doc.reason # This is a free text field for the reason of the inventory count
 
-        # --- Validate mandatory fields from the Inventory Count document ---
-        if not warehouse_name:
-            frappe.throw(_("Warehouse is not set in the Inventory Count document. Cannot proceed with ConnectWise push."),
-                         title=_("Missing Warehouse"))
+        try:
+            # Use regex for a robust way to find the number in the last parentheses
+            match = re.search(r'\((\d+)\)$', doc.warehouse)
+            if not match:
+                frappe.throw(
+                    _("Could not parse Warehouse ID from '{0}'. Expected format 'Warehouse Name (123)'.").format(doc.warehouse),
+                    title=_("Invalid Warehouse Format")
+                )
+            warehouse_id = int(match.group(1))
+        except (AttributeError, TypeError, IndexError):
+            frappe.throw(
+                _("Warehouse is not set or is in an invalid format in the Inventory Count document."),
+                title=_("Missing or Invalid Warehouse")
+            )
         
         # Filter for only confirmed items that have a difference
         confirmed_items_to_push = [
@@ -670,21 +680,31 @@ def push_confirmed_differences_to_connectwise(doc_name):
                 continue
 
             try:           
-                # Construct individual adjustment detail
+                bin_id = None
+                if item.bin and item.bin.strip():
+                    match = re.search(r'\((\d+)\)$', item.bin)
+                    if match:
+                        bin_id = int(match.group(1))
+                    else:
+                        # Log a warning if bin format is unexpected but don't stop the process
+                        frappe.log_error(f"Could not parse Bin ID from '{item.bin}' for item '{item.item_code}'. Proceeding without bin.", "ConnectWise Push Warning")
+
                 adjustment_detail = {
-                    'catalogItem': { # Reference to the ConnectWise product
+                    'catalogItem': {
                         'identifier': item.item_code
                     },
-                    #'description': item.description, # Using item_name from Frappe as description
-                    'quantityAdjusted': difference_qty, # Use the actual difference, can be negative
+                    'quantityAdjusted': difference_qty,
                     'warehouse': { 
-                        'name': warehouse_name
-                    },
-                    'warehouseBin': {
-                        'name': item.bin
+                        'id': warehouse_id  # Use the parsed warehouse ID
                     }
                 }
-                # --- Add serial numbers if available and relevant ---
+
+                # Only add the warehouseBin object if a bin_id was successfully parsed
+                if bin_id:
+                    adjustment_detail['warehouseBin'] = {
+                        'id': bin_id # Use the parsed bin ID
+                    }
+                    
                 if difference_qty < 0: # Only for missing items (negative adjustment)
                     serials_for_item = item_serials_map.get(item.item_code)
                     if serials_for_item:
