@@ -670,43 +670,44 @@ def push_confirmed_differences_to_connectwise(doc_name):
         
         for item in confirmed_items_to_push:
             difference_qty = item.physical_qty - item.virtual_qty
-            
 
             if difference_qty == 0:
-                frappe.msgprint(f"Skipping '{item.item_code}' as there is no quantity difference.", title=_("Skipped"))
                 continue
 
-            try:           
+            try:
+                # --- Common data for this item ---
                 bin_id = None
                 if item.bin and item.bin.strip():
                     match = re.search(r'\((\d+)\)$', item.bin)
                     if match:
                         bin_id = int(match.group(1))
-                    
-                       
-
-                adjustment_detail = {
-                    'catalogItem': {
-                        'identifier': item.item_code
-                    },
-                    'quantityAdjusted': difference_qty,
-                    'warehouse': { 
-                        'id': warehouse_id  # Use the parsed warehouse ID
-                    }
-                }
-
-                # Only add the warehouseBin object if a bin_id was successfully parsed
-                if bin_id:
-                    adjustment_detail['warehouseBin'] = {
-                        'id': bin_id # Use the parsed bin ID
-                    }
-                    
-                if difference_qty < 0: # Only for missing items (negative adjustment)
-                    serials_for_item = item_serials_map.get(item.item_code)
-                    if serials_for_item:
-                        adjustment_detail['serialNumber'] = serials_for_item 
                 
-                adjustment_details_list.append(adjustment_detail)
+                base_detail = {
+                    'catalogItem': {'identifier': item.item_code},
+                    'warehouse': {'id': warehouse_id}
+                }
+                if bin_id:
+                    base_detail['warehouseBin'] = {'id': bin_id}
+
+                serials_for_item = item_serials_map.get(item.item_code)
+
+                # --- Logic Branching ---
+                # Case 1: Negative difference AND there are serial numbers selected for removal.
+                # Create one adjustment detail PER serial number.
+                if difference_qty < 0 and serials_for_item:
+                    for sn in serials_for_item:
+                        # Create a copy to avoid modifying the base dictionary in the loop
+                        adjustment_detail = base_detail.copy()
+                        adjustment_detail['quantityAdjusted'] = -1
+                        adjustment_detail['serialNumber'] = sn  # Assign a single string
+                        adjustment_details_list.append(adjustment_detail)
+
+                # Case 2: Any other scenario (positive difference, or a negative difference for non-serialized items).
+                # Create a single adjustment detail with the total difference.
+                else:
+                    adjustment_detail = base_detail.copy()
+                    adjustment_detail['quantityAdjusted'] = difference_qty
+                    adjustment_details_list.append(adjustment_detail)
 
             except requests.exceptions.Timeout:
                 error_detail = f"Request to ConnectWise timed out for item '{item.item_code}' during product lookup."
@@ -720,7 +721,6 @@ def push_confirmed_differences_to_connectwise(doc_name):
                         error_detail += f" - CW Error: {error_message} (Status: {req_err.response.status_code})"
                     except json.JSONDecodeError:
                         error_detail += f" - CW Raw Response: {req_err.response.text}"
-
                 failed_pushes.append(f"'{item.item_code}': {error_detail}")
             except Exception as item_err:
                 error_detail = f"An unexpected error occurred during processing of '{item.item_code}': {item_err}"
