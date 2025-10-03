@@ -704,7 +704,7 @@ def push_confirmed_differences_to_connectwise(doc_name):
                 if difference_qty < 0: # Only for missing items (negative adjustment)
                     serials_for_item = item_serials_map.get(item.item_code)
                     if serials_for_item:
-                        adjustment_detail['serialNumbers'] = serials_for_item 
+                        adjustment_detail['serialNumber'] = serials_for_item 
                 
                 adjustment_details_list.append(adjustment_detail)
 
