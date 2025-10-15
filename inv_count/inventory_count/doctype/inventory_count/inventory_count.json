@@ -65,7 +65,8 @@
    "fieldname": "warehouse_bin",
    "fieldtype": "Select",
    "label": "Warehouse Bin",
-   "read_only_depends_on": "eval:!(doc.__islocal)"
+   "read_only_depends_on": "eval:!(doc.__islocal)",
+   "reqd": 1
   },
   {
    "default": "Today",

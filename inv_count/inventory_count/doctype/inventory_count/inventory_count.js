@@ -1,7 +1,6 @@
 // inv_count/inventory_count/doctype/inventory_count/inventory_count.js
 
 let auto_update = true; // Flag to control automatic updates
-let initialized = false; // Flag to track if the form has been initialized
 let debug_mode = false; // Flag to track if debug mode is active
 
 frappe.ui.form.on('Inventory Count', {
@@ -70,8 +69,7 @@ frappe.ui.form.on('Inventory Count', {
             });
         }
  
-        if (!frm.doc.__islocal && frm.doc.inv_virtual_items.length === 0 && !initialized) {
-            initialized = true; // Set initialized to true to prevent multiple calls
+        if (!frm.doc.__islocal && frm.doc.inv_virtual_items.length === 0) {
             python_request_in_progress(true); // Disable auto-update during initial import
             frappe.show_alert({
                 message: __("L'importation de l'inventaire a démarré. Cela peut prendre un certain temps."),
@@ -107,7 +105,6 @@ frappe.ui.form.on('Inventory Count', {
                             title: __('Erreur'),
                             indicator: 'red'
                         });
-                        initialized = false; // Reset initialized to allow future imports
                         python_request_in_progress(false); // Re-enable auto-update after import failure
                     }
                 },
@@ -118,7 +115,6 @@ frappe.ui.form.on('Inventory Count', {
                         title: __('Erreur Serveur'),
                         indicator: 'red'
                     });
-                    initialized = false; // Reset initialized to allow future imports
                     python_request_in_progress(false); // Re-enable auto-update after import failure
                 }
             });

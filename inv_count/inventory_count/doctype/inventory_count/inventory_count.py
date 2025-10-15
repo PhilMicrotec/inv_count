@@ -17,6 +17,8 @@ import re
 class InventoryCount(Document):
     pass
 
+cwAPI_version="2025.8" # Define the ConnectWise API version to use throughout the code
+
 @frappe.whitelist()
 def import_data_with_pandas(inventory_count_name):
     """
@@ -470,7 +472,7 @@ def get_connectwise_warehouses_and_bins():
         encoded_credentials = base64.b64encode(credentials.encode('utf-8')).decode('utf-8')
 
         headers = {
-            "Accept": "application/vnd.connectwise.com+json; version=2019.1",
+            "Accept": f"application/vnd.connectwise.com+json; version={cwAPI_version}",
             "Content-Type": "application/json",
             "Authorization": f"Basic {encoded_credentials}",
             "clientID": client_id # Client ID is often also required as a separate header
@@ -609,7 +611,7 @@ def push_confirmed_differences_to_connectwise(doc_name):
 
         # --- Construct ConnectWise API Headers ---
         headers = {
-            "Accept": "application/vnd.connectwise.com+json; version=2019.1", # Consider updating API version if ConnectWise has newer ones
+            "Accept": "application/vnd.connectwise.com+json; version=2025.8", # Consider updating API version if ConnectWise has newer ones
             "Content-Type": "application/json",
             "Authorization": f"Basic {encoded_credentials}",
             "clientId": client_id
@@ -683,11 +685,16 @@ def push_confirmed_differences_to_connectwise(doc_name):
                         bin_id = int(match.group(1))
                 
                 base_detail = {
-                    'catalogItem': {'identifier': item.item_code},
-                    'warehouse': {'id': warehouse_id}
+                    'catalogItem': {
+                        'identifier': item.item_code,
+                    },
+                    'warehouse': {
+                        'id': warehouse_id,
+                    },
+                    'warehouseBin': {
+                        'id': bin_id,
+                    }
                 }
-                if bin_id:
-                    base_detail['warehouseBin'] = {'id': bin_id}
 
                 serials_for_item = item_serials_map.get(item.item_code)
 
@@ -848,7 +855,7 @@ def get_connectwise_type_adjustments():
 
         # Set up HTTP headers for the ConnectWise API request
         headers = {
-            "Accept": "application/vnd.connectwise.com+json; version=2019.1", # Specify API version
+            "Accept": f"application/vnd.connectwise.com+json; version={cwAPI_version}", # Specify API version
             "Content-Type": "application/json",
             "Authorization": f"Basic {encoded_credentials}", # Basic authentication with encoded credentials
             "clientID": client_id # Client ID as a separate header
