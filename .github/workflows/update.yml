@@ -15,5 +15,11 @@ jobs:
           ssh-keyscan -H ${{ secrets.SSH_HOST }} >> ~/.ssh/known_hosts
 
       - name: 🚀 Connect to Server & Update Code
-        run: |
-          echo ${{ vars.HOST_DIR }}
+        run: |  
+          ssh -i ~/.ssh/id_rsa ${{ secrets.SSH_USER }} << 'EOF'
+            sudo su
+            cd ${{ vars.HOST_DIR }}
+            echo "⚙️ Exécution du script..."
+            ./run_setup_frappe.sh
+            echo "✅ Script terminés sur le serveur !"
+          EOF
