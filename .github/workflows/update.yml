@@ -15,5 +15,5 @@ jobs:
           ssh-keyscan -H ${{ secrets.SSH_HOST }} >> ~/.ssh/known_hosts
 
       - name: 🚀 Connect to Server & Update Code
-        run: |  
-          echo ${{ secrets.SSH_HOST }}
+        run: |
+          echo ${{ vars.HOST_DIR }}
