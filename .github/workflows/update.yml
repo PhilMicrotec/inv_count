@@ -10,17 +10,10 @@ jobs:
       - name: 🔑 Set up SSH connection
         run: |
           mkdir -p ~/.ssh
-          echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/id_rsa
+          echo "${{ secrets.SSH_PRIVATE_KEY}}" > ~/.ssh/id_rsa
           chmod 600 ~/.ssh/id_rsa
           ssh-keyscan -H ${{ secrets.SSH_HOST }} >> ~/.ssh/known_hosts
 
       - name: 🚀 Connect to Server & Update Code
         run: |  
-          ssh -i ~/.ssh/id_rsa ${{ secrets.SSH_USER }} << 'EOF'
-            sudo su
-            cd ${{ vars.HOST_DIR }}
-            echo "⚙️ Exécution du script..."
-            ./run_setup_frappe.sh
-            echo "✅ Script terminés sur le serveur !"
-          EOF
-        
+          echo ${{ secrets.SSH_HOST }}
