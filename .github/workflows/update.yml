@@ -1,18 +1,26 @@
-name: Auto-Update via SSH & Generate .env
+name: Déploiement SSH
 
 on:
-  workflow_dispatch:  # 👈 Allows manual execution
+  workflow_dispatch:
 
 jobs:
-  update-server:
+  deploy:
     runs-on: ubuntu-latest
     steps:
-      - name: 🚀 Connect to Server & Update Code
-        run: |  
-          ssh -i ${{ secrets.SSH_PRIVATE_KEY}} ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} << 'EOF'
-            sudo su
+      - name: Checkout du code
+        uses: actions/checkout@v4
+
+      - name: Exécuter une commande SSH
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ vars.SSH_HOST }}
+          username: ${{ vars.SSH_USER }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }} # Notez que la clé privée doit être dans les secrets, pas les variables
+          script: |
+            # Le bloc 'script' exécute les commandes sur l'hôte distant
             cd ${{ vars.HOST_DIR }}
-            echo "⚙️ Exécution du script..."
-            ./run_setup_frappe.sh
-            echo "✅ Script terminés sur le serveur !"
-          EOF
+            # Vous pouvez ajouter d'autres commandes ici, par exemple :
+            # git pull origin main
+            # npm install
+            # npm run build
+            # systemctl restart mon-service-web
