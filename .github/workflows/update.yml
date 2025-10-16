@@ -17,10 +17,6 @@ jobs:
           username: ${{ secrets.SSH_USER }}
           key: ${{ secrets.SSH_PRIVATE_KEY }} # Notez que la clé privée doit être dans les secrets, pas les variables
           script: |
-            # Le bloc 'script' exécute les commandes sur l'hôte distant
+            sudo su
             cd ${{ vars.HOST_DIR }}
-            # Vous pouvez ajouter d'autres commandes ici, par exemple :
-            # git pull origin main
-            # npm install
-            # npm run build
-            # systemctl restart mon-service-web
+            ./run_setup_frappe.sh
