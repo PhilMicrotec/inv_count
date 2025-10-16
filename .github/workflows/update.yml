@@ -13,8 +13,8 @@ jobs:
       - name: Exécuter une commande SSH
         uses: appleboy/ssh-action@v1.0.3
         with:
-          host: ${{ vars.SSH_HOST }}
-          username: ${{ vars.SSH_USER }}
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USER }}
           key: ${{ secrets.SSH_PRIVATE_KEY }} # Notez que la clé privée doit être dans les secrets, pas les variables
           script: |
             # Le bloc 'script' exécute les commandes sur l'hôte distant
