@@ -790,7 +790,7 @@ def push_confirmed_differences_to_connectwise(doc_name):
             final_message = _(f"ConnectWise push process finished. {pushed_count} adjustment details pushed successfully.")
             if failed_detail_pushes:
                 final_message += _(f" {len(failed_detail_pushes)} detail pushes failed: {', '.join(failed_detail_pushes)}")
-                return {"status": "partial_success", "message": final_message}
+                return {"status": "partial_success", "message": final_message, "debug": json.dumps(detail)}
             else:
                 return {"status": "success", "message": final_message}
         except requests.exceptions.Timeout:

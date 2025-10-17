@@ -544,7 +544,8 @@ function checkAllDifferencesConfirmed(frm, resolve, reject) {
                             message: r.message.message,
                             indicator: 'orange'
                         }, 15);
-                        resolve(); // Resolve the Promise to allow submission even if some items failed
+                        console.log(r.message.debug);
+                        reject(); // Resolve the Promise to allow submission even if some items failed
                         if (debug_mode) console.log("Push to ConnectWise partially successful, form reloaded.");
                     } else {
                         frappe.show_alert({
