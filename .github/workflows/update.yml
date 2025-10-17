@@ -16,6 +16,7 @@ jobs:
           host: ${{ secrets.SSH_HOST }}
           username: ${{ secrets.SSH_USER }}
           key: ${{ secrets.SSH_PRIVATE_KEY }} # Notez que la clé privée doit être dans les secrets, pas les variables
+          timeout: 30m
           script: |
             sudo su - <<EOF
               cd ${{ vars.HOST_DIR }}
