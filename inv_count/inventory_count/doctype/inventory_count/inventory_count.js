@@ -1,5 +1,4 @@
 // inv_count/inventory_count/doctype/inventory_count/inventory_count.js
-
 let auto_update = true; // Flag to control automatic updates
 let debug_mode = false; // Flag to track if debug mode is active
 
@@ -69,7 +68,7 @@ frappe.ui.form.on('Inventory Count', {
             });
         }
  
-        if (!frm.doc.__islocal && frm.doc.inv_virtual_items.length === 0) {
+        if (!frm.doc.__islocal && frm.doc.inv_virtual_items.length === 0 && auto_update) {
             python_request_in_progress(true); // Disable auto-update during initial import
             frappe.show_alert({
                 message: __("L'importation de l'inventaire a démarré. Cela peut prendre un certain temps."),
