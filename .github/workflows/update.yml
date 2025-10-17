@@ -20,6 +20,6 @@ jobs:
           script: |
             sudo su - <<EOF
               cd ${{ vars.HOST_DIR }}
-              ./run_setup_frappe.sh
+              ./run_setup_frappe.sh 2>&1
               docker exec -it erpnext-one-backend-1 bash -c "cd /home/frappe/frappe-bench && bench --site bi.microtecinformatique.com migrate"
             EOF
