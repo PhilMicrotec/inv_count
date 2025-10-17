@@ -28,7 +28,6 @@ def import_data_with_pandas(inventory_count_name):
     Args:
         inventory_count_name (str): The name/ID of the Inventory Count document to update.
     """
-    print('Importing data with pandas...')
     parent_doctype = "Inventory Count"
     settings_doctype = "Inventory Count Settings"
     child_table_field_name = "inv_virtual_items"
@@ -694,7 +693,7 @@ def push_confirmed_differences_to_connectwise(doc_name):
                     },
                     'warehouseBin': {
                         'id': bin_id,
-                    }
+                    },
                 }
 
                 serials_for_item = item_serials_map.get(item.item_code)
