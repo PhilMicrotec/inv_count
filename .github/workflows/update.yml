@@ -20,6 +20,6 @@ jobs:
           script: |
             bash -c "sudo su - <<EOF
               cd ${{ vars.HOST_DIR }}
-              ./run_setup_frappe.sh
+              ./run_setup_frappe.sh >/dev/null 2>&1
               docker exec -i erpnext-one-backend-1 bash -c 'cd /home/frappe/frappe-bench && bench --site bi.microtecinformatique.com migrate'
-            EOF" 2>&1
+            EOF
