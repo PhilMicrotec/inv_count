@@ -620,19 +620,15 @@ def push_confirmed_differences_to_connectwise(doc_name):
 
         
         # --- Retrieve relevant fields directly from the Inventory Count document (doc) ---
-        warehouse_name = doc.warehouse # Still used for logging/context, but not sent in CW payload
         cw_adjustment_type_name_for_item = doc.adjustment_type # Correction type name from Frappe
         reason = doc.reason # This is a free text field for the reason of the inventory count
 
         try:
             # Use regex for a robust way to find the number in the last parentheses
-            match = re.search(r'\((\d+)\)$', doc.warehouse)
-            if not match:
-                frappe.throw(
-                    _("Could not parse Warehouse ID from '{0}'. Expected format 'Warehouse Name (123)'.").format(doc.warehouse),
-                    title=_("Invalid Warehouse Format")
-                )
-            warehouse_id = int(match.group(1))
+            matchwh = re.search(r'\((\d+)\)$', doc.warehouse)
+            warehouse_id = int(matchwh.group(1))
+            matchwhbin = re.search(r'\((\d+)\)$', doc.warehouse_bin)
+            bin_id = int(matchwhbin.group(1))
         except (AttributeError, TypeError, IndexError):
             frappe.throw(
                 _("Warehouse is not set or is in an invalid format in the Inventory Count document."),
@@ -678,12 +674,6 @@ def push_confirmed_differences_to_connectwise(doc_name):
 
             try:
                 # --- Common data for this item ---
-                bin_id = None
-                if item.bin and item.bin.strip():
-                    match = re.search(r'\((\d+)\)$', item.bin)
-                    if match:
-                        bin_id = int(match.group(1))
-                
                 base_detail = {
                     'catalogItem': {
                         'identifier': item.item_code,
