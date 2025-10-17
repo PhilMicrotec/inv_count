@@ -798,7 +798,7 @@ def push_confirmed_differences_to_connectwise(doc_name):
            
             failed_pushes.append(f"Consolidated Push: {error_detail}")
             print(error_detail) # Print to console for immediate visibility during dev
-            return {"status": "error", "message": error_detail, "debug": traceback.format_exc()}
+            return {"status": "error", "message": error_detail, "debug": json.dumps(detail)}
         except requests.exceptions.RequestException as req_err:
             error_detail = f"Failed to push consolidated adjustment: {req_err}"
             if hasattr(req_err, 'response') and req_err.response is not None:
@@ -810,12 +810,12 @@ def push_confirmed_differences_to_connectwise(doc_name):
                     error_detail += f" - CW Raw Response: {req_err.response.text}"
             failed_pushes.append(f"Consolidated Push: {error_detail}")
             print(error_detail) # Print to console for immediate visibility during dev
-            return {"status": "error", "message": error_detail, "debug": traceback.format_exc()}
+            return {"status": "error", "message": error_detail, "debug": json.dumps(detail)}
         except Exception as push_err:
             error_detail = f"An unexpected error occurred during consolidated push: {push_err}"
             failed_pushes.append(f"Consolidated Push: {error_detail}")
             print(error_detail) # Print to console for immediate visibility during dev
-            return {"status": "error", "message": error_detail, "debug": traceback.format_exc()}
+            return {"status": "error", "message": error_detail, "debug": json.dumps(detail)}
 
         
     
