@@ -57,9 +57,9 @@
    "label": "Confirmed"
   },
   {
-   "fieldname": "bin",
-   "fieldtype": "Data",
-   "label": "Bin"
+   "fieldname": "recid",
+   "fieldtype": "Int",
+   "label": "RecID"
   }
  ],
  "grid_page_length": 50,
