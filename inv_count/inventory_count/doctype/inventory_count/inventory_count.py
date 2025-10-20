@@ -236,8 +236,8 @@ def compare_child_tables(doc_name):
             row.get("code"): row.get("description")
             for row in physical_items_to_compare
         }
-        virtual_item_bin_map = {
-            row.get("item_id"): row.get("bin")
+        virtual_item_Recid = {
+            row.get("item_id"): row.get("iv_item_recid")
             for row in all_virtual_items if row.get("item_id")
         }
 
@@ -276,7 +276,7 @@ def compare_child_tables(doc_name):
 
             difference = physical_qty_int - virtual_qty_int
 
-            bin_from_virtual = virtual_item_bin_map.get(item_code, "")
+            RecID_from_virtual = virtual_item_Recid.get(item_code, "")
             
             if difference != 0:
                 # Try to find an existing row in inv_difference for this item_code
@@ -293,7 +293,7 @@ def compare_child_tables(doc_name):
                     existing_row_diff.virtual_qty = virtual_qty_int
                     existing_row_diff.difference_qty = difference
                     existing_row_diff.difference_reason = _("Quantité différente") if item_code in virtual_items_map else _("Article non trouvé dans l'inventaire virtuel")
-                    existing_row_diff.bin = bin_from_virtual
+                    existing_row_diff.recid = RecID_from_virtual
                 else:
                     # Create new row
                     new_diff_item = doc.append("inv_difference", {})
@@ -304,7 +304,7 @@ def compare_child_tables(doc_name):
                     new_diff_item.difference_qty = difference
                     new_diff_item.difference_reason = _("Quantité différente") if item_code in virtual_items_map else _("Article non trouvé dans l'inventaire virtuel")
                     new_diff_item.confirmed = existing_confirmed_status_map.get(item_code, 0)
-                    new_diff_item.bin = bin_from_virtual
+                    new_diff_item.recid = RecID_from_virtual
 
                 processed_difference_items.add(item_code)
 
@@ -340,7 +340,7 @@ def compare_child_tables(doc_name):
 
             physical_qty_int = physical_items_map.get(item_code, 0)
 
-            bin_from_virtual = virtual_item_bin_map.get(item_code, "")
+            RecID_from_virtual = virtual_item_Recid.get(item_code, "")
 
             # Always iterate to find existing row now, as we don't clear the table
             existing_row_diff = None
@@ -356,7 +356,7 @@ def compare_child_tables(doc_name):
                 existing_row_diff.virtual_qty = virtual_qty_int
                 existing_row_diff.difference_qty = difference
                 existing_row_diff.difference_reason = _("Article non trouvé dans l'inventaire physique")
-                existing_row_diff.bin = bin_from_virtual
+                existing_row_diff.recid = RecID_from_virtual
                 # existing_row_diff.confirmed is implicitly preserved here
             else:
                 # Create new row
@@ -368,7 +368,7 @@ def compare_child_tables(doc_name):
                 new_diff_item.difference_qty = difference
                 new_diff_item.difference_reason = _("Article non trouvé dans l'inventaire physique")
                 new_diff_item.confirmed = existing_confirmed_status_map.get(item_code, 0)
-                new_diff_item.bin = bin_from_virtual
+                new_diff_item.recid = RecID_from_virtual
                 
             processed_difference_items.add(item_code)
 
