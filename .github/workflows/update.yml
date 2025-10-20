@@ -18,8 +18,8 @@ jobs:
           key: ${{ secrets.SSH_PRIVATE_KEY }} # Notez que la clé privée doit être dans les secrets, pas les variables
           timeout: 30m
           script: |
-              sudo su - <<EOF 
-                cd ${{ vars.HOST_DIR }}
-                ./run_setup_frappe.sh
-                docker exec -i erpnext-one-backend-1 bash -c "cd /home/frappe/frappe-bench && bench --site bi.microtecinformatique.com migrate"
-              EOF
+            sudo su - <<EOF
+              cd ${{ vars.HOST_DIR }}
+              ./run_setup_frappe.sh 2>/dev/null
+              docker exec -i erpnext-one-backend-1 bash -c "cd /home/frappe/frappe-bench && bench --site bi.microtecinformatique.com migrate" 2>/dev/null
+            EOF
