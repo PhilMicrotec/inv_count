@@ -676,7 +676,7 @@ def push_confirmed_differences_to_connectwise(doc_name):
                 # --- Common data for this item ---
                 base_detail = {
                     'catalogItem': {
-                        'id': item.recid,
+                        'identifier': item.item_code,
                     },
                     'warehouse': {
                         'id': warehouse_id,
