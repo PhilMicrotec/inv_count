@@ -482,7 +482,7 @@ function checkAllDifferencesConfirmed(frm, resolve, reject) {
         }
     });
 
-    if (!allConfirmed || frm.doc.adjustment_type === '' || frm.doc.reason === '' || has_validation_errors) {
+    if (!allConfirmed || !frm.doc.adjustment_type || !frm.doc.reason || has_validation_errors) {
         // Ensure the inventory difference section is visible to the user.
         frm.set_df_property('inventory_difference_section', 'hidden', false);
         frappe.show_alert({
