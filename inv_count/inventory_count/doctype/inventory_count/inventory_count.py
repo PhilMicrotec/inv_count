@@ -692,12 +692,12 @@ def push_confirmed_differences_to_connectwise(doc_name):
                 # Case 1: Negative difference AND there are serial numbers selected for removal.
                 # Create one adjustment detail PER serial number.
                 if difference_qty !=0 and serials_for_item:
-                    for sn in serials_for_item:
-                        # Create a copy to avoid modifying the base dictionary in the loop
-                        adjustment_detail = base_detail.copy()
-                        adjustment_detail['quantityAdjusted'] = -1
-                        adjustment_detail['serialNumber'] = sn  # Assign a single string
-                        adjustment_details_list.append(adjustment_detail)
+                    # Create a copy to avoid modifying the base dictionary in the loop
+                    adjustment_detail = base_detail.copy()
+                    adjustment_detail['quantityAdjusted'] = difference_qty
+                    serial_string = ",".join(serials_for_item)
+                    adjustment_detail['serialNumber'] = serial_string
+                    adjustment_details_list.append(adjustment_detail)
 
                 # Case 2: Any other scenario (positive difference, or a negative difference for non-serialized items).
                 # Create a single adjustment detail with the total difference.
