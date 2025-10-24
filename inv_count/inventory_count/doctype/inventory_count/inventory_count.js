@@ -537,7 +537,7 @@ function checkAllDifferencesConfirmed(frm, resolve, reject) {
                         
                             resolve(); // Resolve the Promise to allow submission
                             if (debug_mode) console.log("Push to ConnectWise successful, form reloaded.");
-                        
+                                                    
                     } else if (r.message.status === "partial_success") 
                     {
                         frappe.show_alert({
@@ -547,6 +547,7 @@ function checkAllDifferencesConfirmed(frm, resolve, reject) {
                         console.log(r.message.debug);
                         reject(); // Resolve the Promise to allow submission even if some items failed
                         if (debug_mode) console.log("Push to ConnectWise partially successful, form reloaded.");
+
                     } else {
                         frappe.show_alert({
                             message: r.message.message || __('An unexpected response was received from the server.'),
