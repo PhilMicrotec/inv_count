@@ -906,7 +906,8 @@ def upsert_physical_item(parent_name, code, qty=1, description='', expected_qty=
     import traceback
     try:
         parent = frappe.get_doc("Inventory Count", parent_name)
-        # find existing child row
+
+        # find existing child row by code
         existing = None
         for r in parent.get("inv_physical_items") or []:
             if r.get("code") == code:
@@ -914,6 +915,7 @@ def upsert_physical_item(parent_name, code, qty=1, description='', expected_qty=
                 break
 
         if existing:
+            # increment qty using db.set_value to avoid permission checks
             new_qty = int(existing.get("qty") or 0) + int(qty)
             frappe.db.set_value("Inv_physical_items", existing.get("name"),
                                 {"qty": new_qty,
@@ -921,6 +923,7 @@ def upsert_physical_item(parent_name, code, qty=1, description='', expected_qty=
                                  "expected_qty": expected_qty or existing.get("expected_qty")},
                                 update_modified=False)
         else:
+            # create a child row with explicit parent/parenttype/parentfield and ignore permissions on insert
             child = frappe.get_doc({
                 "doctype": "Inv_physical_items",
                 "parent": parent_name,
@@ -931,7 +934,8 @@ def upsert_physical_item(parent_name, code, qty=1, description='', expected_qty=
                 "description": description,
                 "expected_qty": expected_qty
             })
-            child.insert()
+            # Insert while bypassing user-permissions (server side helper)
+            child.insert(ignore_permissions=True)
 
         frappe.db.commit()
 
@@ -962,6 +966,7 @@ def update_physical_item_row(row_name, qty=None, description=None, expected_qty=
             values["expected_qty"] = expected_qty
 
         if values:
+            # Use db.set_value so permission checks don't block server-to-server updates
             frappe.db.set_value("Inv_physical_items", row_name, values, update_modified=False)
             frappe.db.commit()
 
