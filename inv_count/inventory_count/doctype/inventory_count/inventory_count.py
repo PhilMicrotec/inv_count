@@ -901,31 +901,59 @@ def get_connectwise_type_adjustments():
 def upsert_physical_item(parent_name, code, qty=1, description='', expected_qty=0):
     """
     Insert or update a single Inv_physical_items child row for parent Inventory Count.
-    Returns the refreshed list of inv_physical_items rows as dicts.
+    More robust: find child by (parent, code), update via db.set_value with fallback to save(ignore_permissions),
+    insert with explicit parent fields and ignore_permissions.
     """
     import traceback
+    child_doctype = "Inv_physical_items"
     try:
-        parent = frappe.get_doc("Inventory Count", parent_name)
+        if not parent_name:
+            frappe.throw(_("parent_name is required"))
 
-        # find existing child row by code
-        existing = None
-        for r in parent.get("inv_physical_items") or []:
-            if r.get("code") == code:
-                existing = r
-                break
+        # Normalize numeric qty
+        try:
+            qty = int(qty)
+        except Exception:
+            qty = 1
+
+        # Look for existing child row in DB (avoid relying on parent.get() which may contain unsaved local rows)
+        existing = frappe.get_all(child_doctype,
+                                  filters={
+                                      "parent": parent_name,
+                                      "parentfield": "inv_physical_items",
+                                      "parenttype": "Inventory Count",
+                                      "code": code
+                                  },
+                                  fields=["name", "qty", "description", "expected_qty"],
+                                  limit=1)
 
         if existing:
-            # increment qty using db.set_value to avoid permission checks
-            new_qty = int(existing.get("qty") or 0) + int(qty)
-            frappe.db.set_value("Inv_physical_items", existing.get("name"),
-                                {"qty": new_qty,
-                                 "description": description or existing.get("description"),
-                                 "expected_qty": expected_qty or existing.get("expected_qty")},
-                                update_modified=False)
+            existing = existing[0]
+            current_qty = int(existing.get("qty") or 0)
+            new_qty = current_qty + qty
+
+            # Try low-level update first
+            try:
+                frappe.db.set_value(child_doctype, existing.get("name"),
+                                    {"qty": new_qty,
+                                     "description": description or existing.get("description"),
+                                     "expected_qty": expected_qty or existing.get("expected_qty")},
+                                    update_modified=False)
+            except Exception as e:
+                # Fallback: load document and save while ignoring permissions
+                frappe.log_error(f"set_value failed for {existing.get('name')}, falling back to save(ignore_permissions=True): {e}", "upsert_physical_item fallback")
+                child_doc = frappe.get_doc(child_doctype, existing.get("name"))
+                child_doc.qty = new_qty
+                if description:
+                    child_doc.description = description
+                if expected_qty is not None:
+                    child_doc.expected_qty = expected_qty
+                child_doc.save(ignore_permissions=True)
+
         else:
-            # create a child row with explicit parent/parenttype/parentfield and ignore permissions on insert
+            # Create a new child row with explicit parent fields
             child = frappe.get_doc({
-                "doctype": "Inv_physical_items",
+                "doctype": child_doctype,
                 "parent": parent_name,
                 "parentfield": "inv_physical_items",
                 "parenttype": "Inventory Count",
@@ -934,12 +962,11 @@ def upsert_physical_item(parent_name, code, qty=1, description='', expected_qty=
                 "description": description,
                 "expected_qty": expected_qty
             })
-            # Insert while bypassing user-permissions (server side helper)
             child.insert(ignore_permissions=True)
 
         frappe.db.commit()
 
-        refreshed = frappe.get_all("Inv_physical_items",
+        refreshed = frappe.get_all(child_doctype,
                                   filters={"parent": parent_name, "parentfield": "inv_physical_items", "parenttype": "Inventory Count"},
                                   fields=["name", "code", "description", "qty", "expected_qty"],
                                   order_by="creation")
@@ -950,27 +977,48 @@ def upsert_physical_item(parent_name, code, qty=1, description='', expected_qty=
         frappe.log_error(traceback.format_exc(), "upsert_physical_item")
         raise
 
+
 @frappe.whitelist()
 def update_physical_item_row(row_name, qty=None, description=None, expected_qty=None):
     """
     Update a single Inv_physical_items row by name. Returns the updated row dict.
+    Fallbacks to save(ignore_permissions=True) if direct db update fails due to permissions.
     """
     import traceback
+    child_doctype = "Inv_physical_items"
     try:
+        if not row_name or not frappe.db.exists(child_doctype, row_name):
+            frappe.throw(_("Invalid or missing row_name"))
+
         values = {}
         if qty is not None:
-            values["qty"] = qty
+            # try to coerce numeric
+            try:
+                values["qty"] = int(qty)
+            except Exception:
+                values["qty"] = qty
         if description is not None:
             values["description"] = description
         if expected_qty is not None:
-            values["expected_qty"] = expected_qty
+            try:
+                values["expected_qty"] = int(expected_qty)
+            except Exception:
+                values["expected_qty"] = expected_qty
 
         if values:
-            # Use db.set_value so permission checks don't block server-to-server updates
-            frappe.db.set_value("Inv_physical_items", row_name, values, update_modified=False)
-            frappe.db.commit()
+            try:
+                frappe.db.set_value(child_doctype, row_name, values, update_modified=False)
+                frappe.db.commit()
+            except Exception as e:
+                # fallback to loading the doc and saving while ignoring permissions
+                frappe.log_error(f"set_value failed for {row_name}, falling back to save(ignore_permissions=True): {e}", "update_physical_item_row fallback")
+                child = frappe.get_doc(child_doctype, row_name)
+                for k, v in values.items():
+                    setattr(child, k, v)
+                child.save(ignore_permissions=True)
+                frappe.db.commit()
 
-        row = frappe.get_doc("Inv_physical_items", row_name)
+        row = frappe.get_doc(child_doctype, row_name)
         return {"status": "success", "row": {"name": row.name, "code": row.code, "qty": row.qty, "description": row.description, "expected_qty": row.expected_qty}}
 
     except Exception:
