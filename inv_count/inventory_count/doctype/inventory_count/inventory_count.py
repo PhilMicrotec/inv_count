@@ -895,3 +895,80 @@ def get_connectwise_type_adjustments():
         # Catch any other unexpected errors and log the traceback
         frappe.log_error(traceback.format_exc(), "General ConnectWise API Error fetching type adjustments")
         frappe.throw(f"An unexpected error occurred while fetching ConnectWise type adjustments: {e}", title="API Fetch Error")
+
+
+@frappe.whitelist()
+def upsert_physical_item(parent_name, code, qty=1, description='', expected_qty=0):
+    """
+    Insert or update a single Inv_physical_items child row for parent Inventory Count.
+    Returns the refreshed list of inv_physical_items rows as dicts.
+    """
+    import traceback
+    try:
+        parent = frappe.get_doc("Inventory Count", parent_name)
+        # find existing child row
+        existing = None
+        for r in parent.get("inv_physical_items") or []:
+            if r.get("code") == code:
+                existing = r
+                break
+
+        if existing:
+            new_qty = int(existing.get("qty") or 0) + int(qty)
+            frappe.db.set_value("Inv_physical_items", existing.get("name"),
+                                {"qty": new_qty,
+                                 "description": description or existing.get("description"),
+                                 "expected_qty": expected_qty or existing.get("expected_qty")},
+                                update_modified=False)
+        else:
+            child = frappe.get_doc({
+                "doctype": "Inv_physical_items",
+                "parent": parent_name,
+                "parentfield": "inv_physical_items",
+                "parenttype": "Inventory Count",
+                "code": code,
+                "qty": qty,
+                "description": description,
+                "expected_qty": expected_qty
+            })
+            child.insert()
+
+        frappe.db.commit()
+
+        refreshed = frappe.get_all("Inv_physical_items",
+                                  filters={"parent": parent_name, "parentfield": "inv_physical_items", "parenttype": "Inventory Count"},
+                                  fields=["name", "code", "description", "qty", "expected_qty"],
+                                  order_by="creation")
+        return {"status": "success", "items": refreshed}
+
+    except Exception:
+        frappe.db.rollback()
+        frappe.log_error(traceback.format_exc(), "upsert_physical_item")
+        raise
+
+@frappe.whitelist()
+def update_physical_item_row(row_name, qty=None, description=None, expected_qty=None):
+    """
+    Update a single Inv_physical_items row by name. Returns the updated row dict.
+    """
+    import traceback
+    try:
+        values = {}
+        if qty is not None:
+            values["qty"] = qty
+        if description is not None:
+            values["description"] = description
+        if expected_qty is not None:
+            values["expected_qty"] = expected_qty
+
+        if values:
+            frappe.db.set_value("Inv_physical_items", row_name, values, update_modified=False)
+            frappe.db.commit()
+
+        row = frappe.get_doc("Inv_physical_items", row_name)
+        return {"status": "success", "row": {"name": row.name, "code": row.code, "qty": row.qty, "description": row.description, "expected_qty": row.expected_qty}}
+
+    except Exception:
+        frappe.db.rollback()
+        frappe.log_error(traceback.format_exc(), "update_physical_item_row")
+        raise
