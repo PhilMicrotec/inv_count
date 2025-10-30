@@ -54,3 +54,5 @@ jspm_packages/
 # Aider AI Chat
 .aider*
 inv_count/test.csv
+
+inv_count/hooks.py
