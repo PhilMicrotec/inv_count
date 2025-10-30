@@ -1,4 +1,4 @@
-app_name = "inv_count_dev"
+app_name = "inv_count"
 app_title = "Inventory Count"
 app_publisher = "Microtec"
 app_description = "Inventory count"
