@@ -15,15 +15,19 @@
   "category",
   "section_break_slsq",
   "code",
+  "scanned_items",
   "inv_physical_items",
   "section_virtual_inventory",
   "column_break_wlqy",
+  "connectwise_inventory_snapshot",
   "inv_virtual_items",
   "inventory_difference_section",
   "column_break_ybrb",
   "adjustment_type",
   "reason",
+  "inventory_difference_to_apply",
   "inv_difference",
+  "serial_numbers",
   "inv_difference_sn"
  ],
  "fields": [
@@ -61,7 +65,8 @@
    "fieldname": "warehouse_bin",
    "fieldtype": "Select",
    "label": "Warehouse Bin",
-   "read_only_depends_on": "eval:!(doc.__islocal)"
+   "read_only_depends_on": "eval:!(doc.__islocal)",
+   "reqd": 1
   },
   {
    "default": "Today",
@@ -80,7 +85,7 @@
   {
    "fieldname": "inv_physical_items",
    "fieldtype": "Table",
-   "label": "Scanned Items",
+   "label": "Green=Quantities Match | Red=Quantities Mismatch | Yellow=Not found in inventory or category",
    "options": "Inv_physical_items"
   },
   {
@@ -91,14 +96,14 @@
   {
    "fieldname": "inv_virtual_items",
    "fieldtype": "Table",
-   "label": "Virtual Inventory",
+   "label": "Read Only | Click on a product to see more informations",
    "options": "Inv_virtual_items",
    "read_only": 1
   },
   {
    "fieldname": "inv_difference",
    "fieldtype": "Table",
-   "label": "Inventory difference to Apply",
+   "label": "Please review all difference here if you can't find the product check the confirmation box. All products need to be confirmed",
    "options": "Inv_difference"
   },
   {
@@ -150,15 +155,35 @@
   {
    "fieldname": "inv_difference_sn",
    "fieldtype": "Table",
-   "label": "Serial Numbers",
+   "label": "If the product are serialized in connectwise you need to remove the \"lost\" serial number or add it if it's a positive correction",
    "options": "Inv_difference_sn"
+  },
+  {
+   "fieldname": "inventory_difference_to_apply",
+   "fieldtype": "Heading",
+   "label": "Inventory difference to Apply"
+  },
+  {
+   "fieldname": "serial_numbers",
+   "fieldtype": "Heading",
+   "label": "Serial Numbers"
+  },
+  {
+   "fieldname": "scanned_items",
+   "fieldtype": "Heading",
+   "label": "Scanned Items"
+  },
+  {
+   "fieldname": "connectwise_inventory_snapshot",
+   "fieldtype": "Heading",
+   "label": "Connectwise Inventory Snapshot"
   }
  ],
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "is_submittable": 1,
  "links": [],
- "modified": "2025-08-21 08:20:30.244021",
+ "modified": "2025-08-27 14:25:54.033110",
  "modified_by": "Administrator",
  "module": "Inventory Count",
  "name": "Inventory Count",

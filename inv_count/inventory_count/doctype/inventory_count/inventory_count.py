@@ -12,9 +12,12 @@ import requests
 import base64
 import json
 from frappe.utils import get_datetime, get_timestamp
+import re
 
 class InventoryCount(Document):
     pass
+
+cwAPI_version="2025.8" # Define the ConnectWise API version to use throughout the code
 
 @frappe.whitelist()
 def import_data_with_pandas(inventory_count_name):
@@ -62,9 +65,15 @@ def import_data_with_pandas(inventory_count_name):
                 frappe.throw(_("Error: CSV file '{0}' not found at '{1}'. Please check 'Inventory Count Settings'.").format(csv_file_path_relative, csv_full_path), title=_("File Not Found"))
             
             df = pd.read_csv(csv_full_path, encoding='iso-8859-1')
-            frappe.msgprint(_("Successfully loaded data from CSV: {0}").format(csv_full_path), title=_("CSV Load Success"), indicator='green')
 
         elif import_source_type == "SQL Database":
+
+            warehouse_id_split=inventory_count_doc.warehouse.split('(')[1]
+            warehouse_id = warehouse_id_split.split(')')[0]
+            warehouse_bin_id_split = inventory_count_doc.warehouse_bin.split('(')[1]
+            warehouse_bin_id = warehouse_bin_id_split.split(')')[0]
+            valuation_date = inventory_count_doc.date.strftime('"%Y-%m-%d"')
+
             # Retrieve SQL connection details from the Settings DocType
             sql_host = settings_doc.sql_host
             sql_port = settings_doc.sql_port
@@ -73,6 +82,8 @@ def import_data_with_pandas(inventory_count_name):
             sql_password = settings_doc.get_password('sql_password')
             sql_query = settings_doc.sql_query
 
+            sql_query = sql_query.replace("{warehouse_id}", warehouse_id).replace("{warehouse_bin_id}", warehouse_bin_id).replace("{valuation_date}", valuation_date)
+
             # These are marked as required in the DocType, but a quick check here is good too
             if not all([sql_host, sql_database, sql_username, sql_query]):
                 frappe.throw(_("Missing SQL connection details (Host, Database, Username, or Query) in 'Inventory Count Settings'."), title=_("SQL Details Missing"))
@@ -80,10 +91,8 @@ def import_data_with_pandas(inventory_count_name):
             try:
                 conn_str = f"DRIVER={{ODBC Driver 17 for SQL Server}};SERVER={sql_host},{sql_port};DATABASE={sql_database};UID={sql_username};PWD={sql_password};TrustServerCertificate=yes;Encrypt=yes"
                 conn = pyodbc.connect(conn_str)
-                frappe.msgprint(_("Successfully connected to SQL database: {0} on {1}:{2}").format(sql_database, sql_host, sql_port), title=_("SQL Connect Success"), indicator='green')
                 df = pd.read_sql_query(sql_query, conn)
                 conn.close()
-                frappe.msgprint(_("Successfully loaded data from SQL query."), title=_("SQL Load Success"), indicator='green')
 
             except pyodbc.Error as e:
                 frappe.log_error(f"SQL Database connection/query error: {e}", "Inventory Count SQL Import Error") # Internal log, not for translation
@@ -106,7 +115,6 @@ def import_data_with_pandas(inventory_count_name):
         # Iterate through each row of the DataFrame and add to the childtable
         for index, row in df.iterrows():
             child_item = inventory_count_doc.append(child_table_field_name, {})
-            
             # Mappage des colonnes du DataFrame aux champs de la childtable 'inv_virtual_items'
             # Ensure column names from your CSV/SQL query match these
             try:
@@ -145,12 +153,10 @@ def import_data_with_pandas(inventory_count_name):
                 frappe.log_error(f"Error mapping data row: {row}. Error: {e}", "Inventory Count Data Mapping Error") # Internal log, not for translation
                 frappe.throw(_("Error mapping data row to child table: {0}. Check your CSV/SQL column names and data types.").format(e), title=_("Data Mapping Error"))
 
-
         inventory_count_doc.save()
         frappe.db.commit() # Ensure changes are persisted in the database
 
         return {"status": "success", "message": _("Import completed successfully. {0} items imported.").format(len(inventory_count_doc.get(child_table_field_name)))} # This is a translatable user-facing message
-        #frappe.publish_realtime("Import Complete") # This is an event name, not a translatable user-facing message
 
     except Exception as e:
         frappe.db.rollback() # Rollback changes in case of error
@@ -207,10 +213,8 @@ def compare_child_tables(doc_name):
             
             # If physical items should *also* be filtered by category:
             physical_items_to_compare = [
-                item for item in all_physical_items if item.get("category") == main_category_filter # Assuming physical items also have a category field
+                item for item in all_physical_items 
             ]
-            # If physical items should *not* be filtered by category (compare all physical against filtered virtual):
-            # physical_items_to_compare = all_physical_items # Original behavior if no category field on physical
         else:
             physical_items_to_compare = all_physical_items
             virtual_items_to_compare = all_virtual_items
@@ -232,8 +236,8 @@ def compare_child_tables(doc_name):
             row.get("code"): row.get("description")
             for row in physical_items_to_compare
         }
-        virtual_item_bin_map = {
-            row.get("item_id"): row.get("bin")
+        virtual_item_Recid = {
+            row.get("item_id"): row.get("iv_item_recid")
             for row in all_virtual_items if row.get("item_id")
         }
 
@@ -241,17 +245,25 @@ def compare_child_tables(doc_name):
         processed_difference_items = set()
 
         # --- MODIFIED: Store existing inv_difference_sn data to preserve 'to_do' ---
-        existing_sn_data_map = {} # Key: (product, serial_number), Value: {to_do: ..., other_fields: ...}
+        # Also, pre-populate the final list with existing rows that have a 'Remove/Add' status
+        existing_sn_data_map = {} 
+        preserved_sn_rows = []
+        preserved_sn_keys = set() # To ensure uniqueness for preserved rows
+
         for sn_row in doc.get("inv_difference_sn"):
-            key = (sn_row.get("product"), sn_row.get("serial_number"))
-            if key[0] and key[1]: # Ensure both product and serial_number exist
-                existing_sn_data_map[key] = {
+            sn_key = (sn_row.get("product"), sn_row.get("serial_number"))
+            if sn_key[0] and sn_key[1]: # Ensure both product and serial_number exist
+                existing_sn_data_map[sn_key] = {
                     "to_do": sn_row.get("to_do"),
                     # Add any other fields you want to preserve here
                 }
-        
-        # New list to build the updated inv_difference_sn content
-        updated_inv_difference_sn = []
+                # If an existing row has 'Add/Remove' status, we want to explicitly preserve it
+                if sn_row.get("to_do") == "Remove/Add":
+                    preserved_sn_rows.append(sn_row)
+                    preserved_sn_keys.add(sn_key) # Add to set to mark as seen
+
+        # Initialize updated_inv_difference_sn. We will populate this with new differences.
+        updated_inv_difference_sn_new_entries = []
         # --- END MODIFIED ---
 
         # --- Upsert logic for discrepancies based on Physical Items (from the items selected for comparison) ---
@@ -264,7 +276,7 @@ def compare_child_tables(doc_name):
 
             difference = physical_qty_int - virtual_qty_int
 
-            bin_from_virtual = virtual_item_bin_map.get(item_code, "")
+            RecID_from_virtual = virtual_item_Recid.get(item_code, "")
             
             if difference != 0:
                 # Try to find an existing row in inv_difference for this item_code
@@ -281,7 +293,7 @@ def compare_child_tables(doc_name):
                     existing_row_diff.virtual_qty = virtual_qty_int
                     existing_row_diff.difference_qty = difference
                     existing_row_diff.difference_reason = _("Quantité différente") if item_code in virtual_items_map else _("Article non trouvé dans l'inventaire virtuel")
-                    existing_row_diff.bin = bin_from_virtual
+                    existing_row_diff.recid = RecID_from_virtual
                 else:
                     # Create new row
                     new_diff_item = doc.append("inv_difference", {})
@@ -292,7 +304,7 @@ def compare_child_tables(doc_name):
                     new_diff_item.difference_qty = difference
                     new_diff_item.difference_reason = _("Quantité différente") if item_code in virtual_items_map else _("Article non trouvé dans l'inventaire virtuel")
                     new_diff_item.confirmed = existing_confirmed_status_map.get(item_code, 0)
-                    new_diff_item.bin = bin_from_virtual
+                    new_diff_item.recid = RecID_from_virtual
 
                 processed_difference_items.add(item_code)
 
@@ -303,7 +315,7 @@ def compare_child_tables(doc_name):
                     for sn in serial_numbers:
                         sn_key = (item_code, sn)
                         
-                        # Create a new row (will be populated or updated in the final set)
+                        # Create a new row data (will be added to the temporary list)
                         new_sn_row_data = {
                             "product": item_code,
                             "serial_number": sn
@@ -314,7 +326,7 @@ def compare_child_tables(doc_name):
                             new_sn_row_data["to_do"] = existing_sn_data_map[sn_key]["to_do"]
                         # else: new_sn_row_data["to_do"] will default to whatever its default value is (usually None/empty)
                         
-                        updated_inv_difference_sn.append(new_sn_row_data)
+                        updated_inv_difference_sn_new_entries.append(new_sn_row_data)
                 # --- END MODIFIED ---
 
 
@@ -326,7 +338,9 @@ def compare_child_tables(doc_name):
             description_virtual = description_virtual_item_map.get(item_code, "")
             difference = 0 - virtual_qty_int # Item found in virtual but not in physical (in this comparison scope)
 
-            bin_from_virtual = virtual_item_bin_map.get(item_code, "")
+            physical_qty_int = physical_items_map.get(item_code, 0)
+
+            RecID_from_virtual = virtual_item_Recid.get(item_code, "")
 
             # Always iterate to find existing row now, as we don't clear the table
             existing_row_diff = None
@@ -338,23 +352,23 @@ def compare_child_tables(doc_name):
             if existing_row_diff:
                 # Update existing row
                 existing_row_diff.description = description_virtual
-                existing_row_diff.physical_qty = 0
+                existing_row_diff.physical_qty = physical_qty_int
                 existing_row_diff.virtual_qty = virtual_qty_int
                 existing_row_diff.difference_qty = difference
                 existing_row_diff.difference_reason = _("Article non trouvé dans l'inventaire physique")
-                existing_row_diff.bin = bin_from_virtual
+                existing_row_diff.recid = RecID_from_virtual
                 # existing_row_diff.confirmed is implicitly preserved here
             else:
                 # Create new row
                 new_diff_item = doc.append("inv_difference", {})
                 new_diff_item.item_code = item_code
                 new_diff_item.description = description_virtual
-                new_diff_item.physical_qty = 0
+                new_diff_item.physical_qty = physical_qty_int
                 new_diff_item.virtual_qty = virtual_qty_int
                 new_diff_item.difference_qty = difference
                 new_diff_item.difference_reason = _("Article non trouvé dans l'inventaire physique")
                 new_diff_item.confirmed = existing_confirmed_status_map.get(item_code, 0)
-                new_diff_item.bin = bin_from_virtual
+                new_diff_item.recid = RecID_from_virtual
                 
             processed_difference_items.add(item_code)
 
@@ -373,7 +387,7 @@ def compare_child_tables(doc_name):
                     if sn_key in existing_sn_data_map:
                         new_sn_row_data["to_do"] = existing_sn_data_map[sn_key]["to_do"]
                     
-                    updated_inv_difference_sn.append(new_sn_row_data)
+                    updated_inv_difference_sn_new_entries.append(new_sn_row_data)
             # --- END MODIFIED ---
 
 
@@ -399,20 +413,20 @@ def compare_child_tables(doc_name):
             doc.remove(row_to_remove)
 
         # --- MODIFIED: Final update of inv_difference_sn ---
-        # First, convert the list of dictionaries into a list of Frappe ChildTable rows
-        # This approach ensures uniqueness and handles updates/removals more robustly.
-        final_inv_difference_sn_rows = []
-        seen_sn_keys = set() # To ensure unique (product, serial_number) pairs
+        # Start the final list with all previously preserved 'Add/Remove' rows
+        final_inv_difference_sn_rows = list(preserved_sn_rows)
+        seen_sn_keys = set(preserved_sn_keys) # Initialize with keys of preserved rows
 
-        for sn_data in updated_inv_difference_sn:
+        # Now, iterate through the newly generated entries and add them if not already present (preserved)
+        for sn_data in updated_inv_difference_sn_new_entries:
             sn_key = (sn_data["product"], sn_data["serial_number"])
-            if sn_key not in seen_sn_keys: # Only add if not already processed in this run
+            if sn_key not in seen_sn_keys: # Only add if not already processed in this run (or preserved)
+                # Create a new Frappe child table row
                 new_row = doc.append("inv_difference_sn", sn_data)
                 final_inv_difference_sn_rows.append(new_row)
                 seen_sn_keys.add(sn_key)
 
         # Set the entire child table with the new list of rows.
-        # This will effectively update existing ones, add new, and remove old ones.
         doc.set("inv_difference_sn", final_inv_difference_sn_rows)
         # --- END MODIFIED ---
 
@@ -458,7 +472,7 @@ def get_connectwise_warehouses_and_bins():
         encoded_credentials = base64.b64encode(credentials.encode('utf-8')).decode('utf-8')
 
         headers = {
-            "Accept": "application/vnd.connectwise.com+json; version=2019.1",
+            "Accept": f"application/vnd.connectwise.com+json; version={cwAPI_version}",
             "Content-Type": "application/json",
             "Authorization": f"Basic {encoded_credentials}",
             "clientID": client_id # Client ID is often also required as a separate header
@@ -497,7 +511,7 @@ def get_connectwise_warehouses_and_bins():
                 frappe.log_error(f"ConnectWise: Skipping non-dictionary item in warehouse list: {warehouse}", "ConnectWise List Item Error")
                 continue # Skip if an item isn't a dictionary
 
-            warehouse_name = warehouse.get("name")
+            warehouse_name = warehouse.get("name") + " (" + str(warehouse.get("id")) + ")"
             warehouse_id = warehouse.get("id") # Keep ID if you need to fetch bins separately
 
             if warehouse_name:
@@ -528,13 +542,13 @@ def get_connectwise_warehouses_and_bins():
                     if isinstance(connectwise_bins_data, list):
                         # If it's a list (which is ideal for 'bins for a warehouse')
                         warehouse_bin_options_map[warehouse_name] = [
-                            bin_item.get("name") 
+                            bin_item.get("name") + " (" + str(bin_item.get("id")) + ")"
                             for bin_item in connectwise_bins_data 
                             if isinstance(bin_item, dict) and bin_item.get("name")
                         ]
                     elif isinstance(connectwise_bins_data, dict):
                         # If it's a single dictionary (like your example 'Magasin' bin)
-                        bin_name = connectwise_bins_data.get("name")
+                        bin_name = connectwise_bins_data.get("name") 
                         if bin_name:
                             warehouse_bin_options_map[warehouse_name] = [bin_name] # Store as a list containing one bin
                         else:
@@ -554,13 +568,10 @@ def get_connectwise_warehouses_and_bins():
         }
 
     except requests.exceptions.HTTPError as e:
-        frappe.log_error(f"ConnectWise API HTTP Error: {e.response.status_code} - {e.response.text} - URL: {e.request.url}", "ConnectWise API Error")
         frappe.throw(f"Error fetching data from ConnectWise API: {e.response.status_code} - {e.response.text}", title="ConnectWise API Error")
     except requests.exceptions.RequestException as e:
-        frappe.log_error(f"ConnectWise API Connection Error: {e}", "ConnectWise API Error")
         frappe.throw(f"Connection error to ConnectWise API: {e}", title="Network Error")
     except Exception as e:
-        frappe.log_error(traceback.format_exc(), "General ConnectWise API Error")
         frappe.throw(f"An unexpected error occurred while fetching ConnectWise data: {e}", title="API Fetch Error")
 
 
@@ -600,7 +611,7 @@ def push_confirmed_differences_to_connectwise(doc_name):
 
         # --- Construct ConnectWise API Headers ---
         headers = {
-            "Accept": "application/vnd.connectwise.com+json; version=2019.1", # Consider updating API version if ConnectWise has newer ones
+            "Accept": "application/vnd.connectwise.com+json; version=2025.8", # Consider updating API version if ConnectWise has newer ones
             "Content-Type": "application/json",
             "Authorization": f"Basic {encoded_credentials}",
             "clientId": client_id
@@ -609,14 +620,20 @@ def push_confirmed_differences_to_connectwise(doc_name):
 
         
         # --- Retrieve relevant fields directly from the Inventory Count document (doc) ---
-        warehouse_name = doc.warehouse # Still used for logging/context, but not sent in CW payload
         cw_adjustment_type_name_for_item = doc.adjustment_type # Correction type name from Frappe
         reason = doc.reason # This is a free text field for the reason of the inventory count
 
-        # --- Validate mandatory fields from the Inventory Count document ---
-        if not warehouse_name:
-            frappe.throw(_("Warehouse is not set in the Inventory Count document. Cannot proceed with ConnectWise push."),
-                         title=_("Missing Warehouse"))
+        try:
+            # Use regex for a robust way to find the number in the last parentheses
+            matchwh = re.search(r'\((\d+)\)$', doc.warehouse)
+            warehouse_id = int(matchwh.group(1))
+            matchwhbin = re.search(r'\((\d+)\)$', doc.warehouse_bin)
+            bin_id = int(matchwhbin.group(1))
+        except (AttributeError, TypeError, IndexError):
+            frappe.throw(
+                _("Warehouse is not set or is in an invalid format in the Inventory Count document."),
+                title=_("Missing or Invalid Warehouse")
+            )
         
         # Filter for only confirmed items that have a difference
         confirmed_items_to_push = [
@@ -651,38 +668,46 @@ def push_confirmed_differences_to_connectwise(doc_name):
         
         for item in confirmed_items_to_push:
             difference_qty = item.physical_qty - item.virtual_qty
-            
 
             if difference_qty == 0:
-                frappe.msgprint(f"Skipping '{item.item_code}' as there is no quantity difference.", title=_("Skipped"))
                 continue
 
-            try:           
-                # Construct individual adjustment detail
-                adjustment_detail = {
-                    'catalogItem': { # Reference to the ConnectWise product
-                        'identifier': item.item_code
+            try:
+                # --- Common data for this item ---
+                base_detail = {
+                    'catalogItem': {
+                        'id': item.recid,
                     },
-                    #'description': item.description, # Using item_name from Frappe as description
-                    'quantityAdjusted': difference_qty, # Use the actual difference, can be negative
-                    'warehouse': { 
-                        'name': warehouse_name
+                    'warehouse': {
+                        'id': warehouse_id,
                     },
                     'warehouseBin': {
-                        'name': item.bin
-                    }
+                        'id': bin_id,
+                    },
                 }
-                # --- Add serial numbers if available and relevant ---
-                if difference_qty < 0: # Only for missing items (negative adjustment)
-                    serials_for_item = item_serials_map.get(item.item_code)
-                    if serials_for_item:
-                        adjustment_detail['serialNumbers'] = serials_for_item 
-                
-                adjustment_details_list.append(adjustment_detail)
+
+                serials_for_item = item_serials_map.get(item.item_code)
+
+                # --- Logic Branching ---
+                # Case 1: Negative difference AND there are serial numbers selected for removal.
+                # Create one adjustment detail PER serial number.
+                if difference_qty !=0 and serials_for_item:
+                    # Create a copy to avoid modifying the base dictionary in the loop
+                    adjustment_detail = base_detail.copy()
+                    adjustment_detail['quantityAdjusted'] = difference_qty
+                    serial_string = ",".join(serials_for_item)
+                    adjustment_detail['serialNumber'] = serial_string
+                    adjustment_details_list.append(adjustment_detail)
+
+                # Case 2: Any other scenario (positive difference, or a negative difference for non-serialized items).
+                # Create a single adjustment detail with the total difference.
+                else:
+                    adjustment_detail = base_detail.copy()
+                    adjustment_detail['quantityAdjusted'] = difference_qty
+                    adjustment_details_list.append(adjustment_detail)
 
             except requests.exceptions.Timeout:
                 error_detail = f"Request to ConnectWise timed out for item '{item.item_code}' during product lookup."
-                frappe.log_error(error_detail, "ConnectWise Product Lookup Timeout Error")
                 failed_pushes.append(f"'{item.item_code}': {error_detail}")
             except requests.exceptions.RequestException as req_err:
                 error_detail = f"Failed to find product '{item.item_code}' due to API error: {req_err}"
@@ -693,11 +718,9 @@ def push_confirmed_differences_to_connectwise(doc_name):
                         error_detail += f" - CW Error: {error_message} (Status: {req_err.response.status_code})"
                     except json.JSONDecodeError:
                         error_detail += f" - CW Raw Response: {req_err.response.text}"
-                frappe.log_error(error_detail, "ConnectWise Product Lookup Request Error")
                 failed_pushes.append(f"'{item.item_code}': {error_detail}")
             except Exception as item_err:
                 error_detail = f"An unexpected error occurred during processing of '{item.item_code}': {item_err}"
-                frappe.log_error(error_detail, "ConnectWise Detail Creation Generic Error")
                 failed_pushes.append(f"'{item.item_code}': {error_detail}")
 
         if not adjustment_details_list:
@@ -718,20 +741,19 @@ def push_confirmed_differences_to_connectwise(doc_name):
 
         try:
             # Step 1: Create the main inventory adjustment (uncommented this part)
-            #response = requests.post(adjustments_api_endpoint, headers=headers, data=json.dumps(main_adjustment_payload), timeout=60)
-            #response.raise_for_status() # Raise an exception for bad status codes
+            response = requests.post(adjustments_api_endpoint, headers=headers, data=json.dumps(main_adjustment_payload), timeout=60)
+            response.raise_for_status() # Raise an exception for bad status codes
 
-            #parentId = response.json().get('id') # Get the ID of the created adjustment
+            parentId = response.json().get('id') # Get the ID of the created adjustment
 
-            #print(f"ConnectWise: Created adjustment with ID {parentId}.")
+            print(f"ConnectWise: Created adjustment with ID {parentId}.")
 
             # Step 2: Iterate and send each adjustment detail individually
             for detail in adjustment_details_list:
-                #adjustments_details_api_endpoint = f"{connectwise_api_url}/procurement/adjustments/{parentId}/details"
+                adjustments_details_api_endpoint = f"{connectwise_api_url}/procurement/adjustments/{parentId}/details"
                 try:
-                    #details_response = requests.post(adjustments_details_api_endpoint, headers=headers, data=json.dumps(detail), timeout=60)
-                    #details_response.raise_for_status() # Raise an exception for bad status codes
-                    print(json.dumps(detail))
+                    details_response = requests.post(adjustments_details_api_endpoint, headers=headers, data=json.dumps(detail), timeout=60)
+                    details_response.raise_for_status() # Raise an exception for bad status codes
                     pushed_count += 1
 
                 except requests.exceptions.RequestException as detail_req_err:
@@ -743,35 +765,30 @@ def push_confirmed_differences_to_connectwise(doc_name):
                             error_detail += f" - CW Error: {error_message} (Status: {detail_req_err.response.status_code})"
                         except json.JSONDecodeError:
                             error_detail += f" - CW Raw Response: {detail_req_err.response.text}"
-                    frappe.log_error(error_detail, "ConnectWise Adjustment Detail Push Error")
                     failed_detail_pushes.append(error_detail)
                 except Exception as detail_err:
-                    error_detail = f"An unexpected error occurred during detail push for item '{detail.get('catalogItem', {}).get('identifier', 'N/A')}': {detail_err}"
-                    frappe.log_error(error_detail, "ConnectWise Adjustment Detail Push Generic Error")
+                    error_detail = f"Error Pushing to CW : {detail_err}"
+                    
                     failed_detail_pushes.append(error_detail)
 
 
             # Mark all successfully pushed items as pushed in Frappe
             for item in confirmed_items_to_push:
-                # You'll need to refine this to only mark the ones whose details were truly pushed
-                # This might involve comparing item.item_code with the successfully pushed details
-                # For simplicity here, assuming if the overall process reaches this point, you'd mark them.
-                # A more robust solution would track individual successes.
                 if hasattr(item, 'pushed_to_connectwise'):
                     item.db_set('pushed_to_connectwise', 1) 
             
             final_message = _(f"ConnectWise push process finished. {pushed_count} adjustment details pushed successfully.")
             if failed_detail_pushes:
                 final_message += _(f" {len(failed_detail_pushes)} detail pushes failed: {', '.join(failed_detail_pushes)}")
-                return {"status": "partial_success", "message": final_message}
+                return {"status": "partial_success", "message": final_message, "debug": json.dumps(detail)}
             else:
                 return {"status": "success", "message": final_message}
         except requests.exceptions.Timeout:
             error_detail = f"Consolidated request to ConnectWise timed out after preparing {len(adjustment_details_list)} items."
-            frappe.log_error(error_detail, "ConnectWise Consolidated Push Timeout Error")
+           
             failed_pushes.append(f"Consolidated Push: {error_detail}")
             print(error_detail) # Print to console for immediate visibility during dev
-            return {"status": "error", "message": error_detail}
+            return {"status": "error", "message": error_detail, "debug": json.dumps(detail)}
         except requests.exceptions.RequestException as req_err:
             error_detail = f"Failed to push consolidated adjustment: {req_err}"
             if hasattr(req_err, 'response') and req_err.response is not None:
@@ -781,16 +798,14 @@ def push_confirmed_differences_to_connectwise(doc_name):
                     error_detail += f" - CW Error: {error_message} (Status: {req_err.response.status_code})"
                 except json.JSONDecodeError:
                     error_detail += f" - CW Raw Response: {req_err.response.text}"
-            frappe.log_error(error_detail, "ConnectWise Consolidated Push Request Error")
             failed_pushes.append(f"Consolidated Push: {error_detail}")
             print(error_detail) # Print to console for immediate visibility during dev
-            return {"status": "error", "message": error_detail}
+            return {"status": "error", "message": error_detail, "debug": json.dumps(detail)}
         except Exception as push_err:
             error_detail = f"An unexpected error occurred during consolidated push: {push_err}"
-            frappe.log_error(error_detail, "ConnectWise Consolidated Push Generic Error")
             failed_pushes.append(f"Consolidated Push: {error_detail}")
             print(error_detail) # Print to console for immediate visibility during dev
-            return {"status": "error", "message": error_detail}
+            return {"status": "error", "message": error_detail, "debug": json.dumps(detail)}
 
         
     
@@ -799,9 +814,6 @@ def push_confirmed_differences_to_connectwise(doc_name):
         return {"status": "error", "message": "ConnectWise push process stopped due to a configuration or data error. Check messages for details."}
     except Exception as e:
         frappe.db.rollback() 
-        error_trace = traceback.format_exc()
-        frappe.log_error(error_trace, "Critical Error in push_confirmed_differences_to_connectwise function")
-        frappe.msgprint(_(f"An unexpected critical error occurred during the ConnectWise push process: {e}"), title=_("ConnectWise Push Error"), indicator='red')
         return {"status": "error", "message": str(e)}
     
 @frappe.whitelist()
@@ -833,15 +845,13 @@ def get_connectwise_type_adjustments():
 
         # Set up HTTP headers for the ConnectWise API request
         headers = {
-            "Accept": "application/vnd.connectwise.com+json; version=2019.1", # Specify API version
+            "Accept": f"application/vnd.connectwise.com+json; version={cwAPI_version}", # Specify API version
             "Content-Type": "application/json",
             "Authorization": f"Basic {encoded_credentials}", # Basic authentication with encoded credentials
             "clientID": client_id # Client ID as a separate header
         }
 
         type_adjustments_endpoint = f"{connectwise_api_url}/procurement/adjustments/types"
-
-        frappe.log_error(f"ConnectWise: Fetching type adjustments from: {type_adjustments_endpoint}", "ConnectWise Debug")
 
         # Make the HTTP GET request to the ConnectWise API
         response = requests.get(type_adjustments_endpoint, headers=headers, timeout=15)
@@ -851,8 +861,6 @@ def get_connectwise_type_adjustments():
         try:
             # Attempt to parse the JSON response
             connectwise_type_adjustments_data = response.json()
-            frappe.log_error(f"ConnectWise: Type adjustments data type: {type(connectwise_type_adjustments_data)}", "ConnectWise Debug")
-            frappe.log_error(f"ConnectWise: Type adjustments JSON (first 500 chars): {json.dumps(connectwise_type_adjustments_data, indent=2)[:500]}...", "ConnectWise Debug")
         except json.JSONDecodeError:
             # Log and throw an error if the response is not valid JSON
             frappe.log_error(f"ConnectWise: Type Adjustments API did not return valid JSON. Raw text: {response.text}", "ConnectWise JSON Error")

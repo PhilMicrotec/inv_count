@@ -27,7 +27,7 @@
    "fieldname": "to_do",
    "fieldtype": "Select",
    "in_list_view": 1,
-   "label": "To Do",
+   "label": "To do",
    "options": "\nRemove/Add"
   }
  ],
@@ -35,7 +35,7 @@
  "index_web_pages_for_search": 1,
  "istable": 1,
  "links": [],
- "modified": "2025-07-25 08:43:47.460260",
+ "modified": "2025-08-28 07:11:04.797256",
  "modified_by": "Administrator",
  "module": "Inventory Count",
  "name": "Inv_difference_sn",

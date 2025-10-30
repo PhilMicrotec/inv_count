@@ -1,7 +1,5 @@
 // inv_count/inventory_count/doctype/inventory_count/inventory_count.js
-
 let auto_update = true; // Flag to control automatic updates
-let initialized = false; // Flag to track if the form has been initialized
 let debug_mode = false; // Flag to track if debug mode is active
 
 frappe.ui.form.on('Inventory Count', {
@@ -70,8 +68,7 @@ frappe.ui.form.on('Inventory Count', {
             });
         }
  
-        if (!frm.doc.__islocal && frm.doc.inv_virtual_items.length === 0 && !initialized) {
-            initialized = true; // Set initialized to true to prevent multiple calls
+        if (!frm.doc.__islocal && frm.doc.inv_virtual_items.length === 0 && auto_update) {
             python_request_in_progress(true); // Disable auto-update during initial import
             frappe.show_alert({
                 message: __("L'importation de l'inventaire a démarré. Cela peut prendre un certain temps."),
@@ -107,7 +104,6 @@ frappe.ui.form.on('Inventory Count', {
                             title: __('Erreur'),
                             indicator: 'red'
                         });
-                        initialized = false; // Reset initialized to allow future imports
                         python_request_in_progress(false); // Re-enable auto-update after import failure
                     }
                 },
@@ -118,7 +114,6 @@ frappe.ui.form.on('Inventory Count', {
                         title: __('Erreur Serveur'),
                         indicator: 'red'
                     });
-                    initialized = false; // Reset initialized to allow future imports
                     python_request_in_progress(false); // Re-enable auto-update after import failure
                 }
             });
@@ -487,7 +482,7 @@ function checkAllDifferencesConfirmed(frm, resolve, reject) {
         }
     });
 
-    if (!allConfirmed || frm.doc.adjustment_type === '' || frm.doc.reason === '' || has_validation_errors) {
+    if (!allConfirmed || !frm.doc.adjustment_type || !frm.doc.reason || has_validation_errors) {
         // Ensure the inventory difference section is visible to the user.
         frm.set_df_property('inventory_difference_section', 'hidden', false);
         frappe.show_alert({
@@ -522,13 +517,12 @@ function checkAllDifferencesConfirmed(frm, resolve, reject) {
         }
         
 
-        // Explicitly reject the submission.
+        python_request_in_progress(false); // Re-enable auto-update if it was disabled
         reject();
     } else {
-        // If all relevant differences are confirmed, prompt the user to push to ConnectWise.
+        // If all relevant differences are confirmed, push to ConnectWise.
             if (debug_mode) console.log("All differences confirmed. Proceeding to push to ConnectWise.");
-            console.log("Pushing confirmed differences to ConnectWise...");
-            
+                        
                 frappe.call({
                     method: 'inv_count.inventory_count.doctype.inventory_count.inventory_count.push_confirmed_differences_to_connectwise',
                     args: {
@@ -543,21 +537,24 @@ function checkAllDifferencesConfirmed(frm, resolve, reject) {
                         
                             resolve(); // Resolve the Promise to allow submission
                             if (debug_mode) console.log("Push to ConnectWise successful, form reloaded.");
-                        
+                                                    
                     } else if (r.message.status === "partial_success") 
                     {
                         frappe.show_alert({
                             message: r.message.message,
                             indicator: 'orange'
                         }, 15);
-                        resolve(); // Resolve the Promise to allow submission even if some items failed
+                        console.log(r.message.debug);
+                        reject(); // Resolve the Promise to allow submission even if some items failed
                         if (debug_mode) console.log("Push to ConnectWise partially successful, form reloaded.");
+
                     } else {
                         frappe.show_alert({
                             message: r.message.message || __('An unexpected response was received from the server.'),
                             title: __('Error'),
                             indicator: 'red'
                         }, 15);
+                        console.log(r.message.debug);
                         reject();
                         python_request_in_progress(false); // Re-enable auto-update even if the API call fails
                     }
