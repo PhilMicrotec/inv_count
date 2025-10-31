@@ -686,6 +686,7 @@ function python_request_in_progress(bool) {
 
 frappe.ui.form.on('Inv_physical_items', {
     inv_physical_items_remove: function(frm, cdt, cdn) {
+        if (debug_mode) console.log("Physical item row removed, saving parent form.");
         this.frm.save();
     }
 });
