@@ -262,14 +262,6 @@ frappe.ui.form.on('Inventory Count', {
                     if (e.keyCode === 13) { // Enter key
                         e.preventDefault(); // Prevent default form submission or new line
 
-                        // Debounce to prevent rapid multiple submissions
-                        const currentTime = new Date().getTime();
-                        if (currentTime - lastScanTime < SCAN_DEBOUNCE_MS) {
-                            if (debug_mode) console.log("Scan trop rapide, ignoré");
-                            return;
-                        }
-                        lastScanTime = currentTime;
-
                         const enteredCode = currentScannedCode.trim();
 
                         if (enteredCode) {
