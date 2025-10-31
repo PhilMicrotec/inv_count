@@ -610,7 +610,7 @@ function checkAllDifferencesConfirmed(frm, resolve, reject) {
 
 
 frappe.ui.form.on('Inv_physical_items', {
-    ondelete: function(frm, cdt, cdn) {
+    fieldname_remove: function(frm, cdt, cdn) {
         this.frm.save(); // Save the form to persist deletion
     }
 });
