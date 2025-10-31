@@ -307,6 +307,9 @@ frappe.ui.form.on('Inventory Count', {
                                             callback: function(r) {
                                                 if (r.message && r.message.items) {
                                                     // Replace and refresh only the child table
+                                                    frm.set_value('code', ''); // Clear the main 'code' field for next scan
+                                                    frm.refresh_field('code'); // Refresh the 'code' field display
+                                                    currentScannedCode = '';
                                                     frm.set_value('inv_physical_items', r.message.items);
                                                     frm.refresh_field('inv_physical_items');
                                                     applyPhysicalItemsColoring(frm);
@@ -343,6 +346,9 @@ frappe.ui.form.on('Inventory Count', {
                                     },
                                     callback: function(r) {
                                         if (r.message && r.message.items) {
+                                            frm.set_value('code', ''); // Clear the main 'code' field for next scan
+                                            frm.refresh_field('code'); // Refresh the 'code' field display
+                                            currentScannedCode = '';
                                             frm.set_value('inv_physical_items', r.message.items);
                                             frm.refresh_field('inv_physical_items');
                                             applyPhysicalItemsColoring(frm);
@@ -624,6 +630,9 @@ frappe.ui.form.on('Inv_physical_items', {
                     frm.refresh_field('inv_physical_items');
                     applyPhysicalItemsColoring(frm);
                 }
+                frm.set_value('code', ''); // Clear the main 'code' field for next scan
+                frm.refresh_field('code'); // Refresh the 'code' field display
+                currentScannedCode = '';
             }
         });
     },
@@ -638,7 +647,7 @@ frappe.ui.form.on('Inv_physical_items', {
                 qty: row.qty,
                 description: row.description,
                 expected_qty: row.expected_qty
-            }
+            },
         });
     },
     description: function(frm, cdt, cdn) {
