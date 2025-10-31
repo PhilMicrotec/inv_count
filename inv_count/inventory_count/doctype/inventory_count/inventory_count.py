@@ -998,7 +998,7 @@ def upsert_physical_item(parent_name, code, qty=1, description='', expected_qty=
                                   filters={"parent": parent_name, "parentfield": "inv_physical_items", "parenttype": "Inventory Count"},
                                   fields=["name", "code", "description", "qty", "expected_qty"],
                                   order_by="creation")
-        frappe.publish_realtime('inv_physical_items_refresh', data={'status': 'success'})
+        frappe.publish_realtime('inv_physical_items_refresh')
         return {"status": "success", "items": refreshed}
 
     except Exception:
