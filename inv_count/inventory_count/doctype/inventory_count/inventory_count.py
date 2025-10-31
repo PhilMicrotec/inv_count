@@ -919,7 +919,7 @@ def upsert_physical_item(parent_name, code, qty=1, description='', expected_qty=
         code = str(code).strip()
 
         try:
-            inc = int(qty)
+            inc = 1
         except Exception:
             inc = 1
 
