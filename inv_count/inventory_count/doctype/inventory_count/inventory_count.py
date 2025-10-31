@@ -900,9 +900,11 @@ def get_connectwise_type_adjustments():
 @frappe.whitelist()
 def upsert_physical_item(parent_name, code, qty=1, description='', expected_qty=0):
     """
-    Atomic upsert: try an UPDATE that does qty = qty + <inc>.
-    If no row was updated, INSERT a new child row (with explicit parent fields).
-    Returns the refreshed child rows list.
+    Atomic upsert with duplicate-insert fallback:
+    - trim/normalize code
+    - try UPDATE qty = qty + inc
+    - if UPDATE affected 0 rows, try INSERT
+    - if INSERT fails due to duplicate, retry UPDATE once
     """
     import traceback
     child_doctype = "Inv_physical_items"
@@ -910,19 +912,16 @@ def upsert_physical_item(parent_name, code, qty=1, description='', expected_qty=
         if not parent_name:
             frappe.throw(_("parent_name is required"))
 
+        if not code:
+            frappe.throw(_("code is required"))
+
+        # Normalize code to avoid duplicates due to whitespace/case
+        code = str(code).strip()
+
         try:
             inc = int(qty)
         except Exception:
             inc = 1
-
-        # 1) Try atomic UPDATE (qty = qty + inc). Update description/expected_qty only when provided.
-        update_sql = """
-            UPDATE `tabInv_physical_items`
-            SET qty = COALESCE(qty, 0) + %s
-            {desc_clause}
-            {expected_clause}
-            WHERE parent=%s AND parentfield=%s AND parenttype=%s AND code=%s
-        """
 
         desc_clause = ""
         expected_clause = ""
@@ -934,7 +933,6 @@ def upsert_physical_item(parent_name, code, qty=1, description='', expected_qty=
 
         if expected_qty is not None and expected_qty != "":
             expected_clause = ", expected_qty = %s"
-            # coerce expected_qty to int when possible
             try:
                 params.append(int(expected_qty))
             except Exception:
@@ -943,27 +941,59 @@ def upsert_physical_item(parent_name, code, qty=1, description='', expected_qty=
         # parent params
         params.extend([parent_name, "inv_physical_items", "Inventory Count", code])
 
-        frappe.db.sql(update_sql.format(desc_clause=desc_clause, expected_clause=expected_clause), params)
+        update_sql = """
+            UPDATE `tabInv_physical_items`
+            SET qty = COALESCE(qty, 0) + %s
+            {desc_clause}
+            {expected_clause}
+            WHERE parent=%s AND parentfield=%s AND parenttype=%s AND code=%s
+        """.format(desc_clause=desc_clause, expected_clause=expected_clause)
 
-        # 2) If the row does not exist after UPDATE, insert it
-        existing = frappe.db.get_value(child_doctype,
-                                       {"parent": parent_name, "parentfield": "inv_physical_items", "parenttype": "Inventory Count", "code": code},
-                                       ["name"])
-        if not existing:
-            child = frappe.get_doc({
-                "doctype": child_doctype,
-                "parent": parent_name,
-                "parentfield": "inv_physical_items",
-                "parenttype": "Inventory Count",
-                "code": code,
-                "qty": inc,
-                "description": description,
-                "expected_qty": expected_qty
-            })
-            child.insert(ignore_permissions=True)
+        # 1) Try atomic UPDATE
+        frappe.db.sql(update_sql, params)
+        # Get number of affected rows for the previous UPDATE
+        affected = 0
+        try:
+            affected = int(frappe.db.sql("SELECT ROW_COUNT()")[0][0])
+        except Exception:
+            affected = 0
 
-        frappe.db.commit()
+        # 2) If no row updated, try to INSERT (may race => catch duplicate and retry UPDATE)
+        if affected == 0:
+            try:
+                child = frappe.get_doc({
+                    "doctype": child_doctype,
+                    "parent": parent_name,
+                    "parentfield": "inv_physical_items",
+                    "parenttype": "Inventory Count",
+                    "code": code,
+                    "qty": inc,
+                    "description": description,
+                    "expected_qty": expected_qty
+                })
+                child.insert(ignore_permissions=True)
+                frappe.db.commit()
+            except Exception as e:
+                # If another transaction inserted the same row concurrently, retry the atomic UPDATE once
+                err_str = str(e)
+                if "Duplicate entry" in err_str or "Duplicate" in err_str:
+                    try:
+                        # Retry UPDATE to increment the qty
+                        frappe.db.sql(update_sql, params)
+                        frappe.db.commit()
+                    except Exception as e2:
+                        frappe.db.rollback()
+                        frappe.log_error(traceback.format_exc(), "upsert_physical_item retry update failed")
+                        raise
+                else:
+                    frappe.db.rollback()
+                    frappe.log_error(traceback.format_exc(), "upsert_physical_item insert failed")
+                    raise
+        else:
+            # UPDATE succeeded, commit
+            frappe.db.commit()
 
+        # Refresh and return rows
         refreshed = frappe.get_all(child_doctype,
                                   filters={"parent": parent_name, "parentfield": "inv_physical_items", "parenttype": "Inventory Count"},
                                   fields=["name", "code", "description", "qty", "expected_qty"],
