@@ -4,13 +4,27 @@ let debug_mode = false; // Flag to track if debug mode is active
 
 frappe.ui.form.on('Inventory Count', {
     refresh: function(frm) {
+        const child_table_fieldname = 'inv_physical_items';
+        frm.fields_dict[child_table_fieldname].grid.wrapper.on('keydown', 'input', function(e) {
+            if (e.shiftKey && (e.key === 'Enter' || e.keyCode === 13)) {
+                e.preventDefault();
+ 
+                const $input = $(this);
+                const $row = $input.closest('.grid-row');
+                const row_name = $row.attr('data-name');
+                const doc = frappe.get_doc('Inv_physical_items', row_name); 
+                console.log("Modified row", doc)
+                this.frm.save(); // Save the parent form
+            }
+        });
+
         // --- Debug Mode Visibility Logic ---
         // Fetches 'debug_mode' setting from 'Inventory Count Settings' and adjusts field visibility.
         frappe.db.get_single_value('Inventory Count Settings', 'debug_mode')
             .then(debug_mode_setting => {
                 debug_mode = debug_mode_setting || false; // Default to false if not set
                 if (debug_mode) {
-                    cur_frm.set_df_property('inventory_difference_section', 'hidden', false);
+                    //cur_frm.set_df_property('inventory_difference_section', 'hidden', false);
                     cur_frm.set_df_property('section_virtual_inventory', 'hidden', false);
                 }
             })
@@ -448,10 +462,6 @@ frappe.ui.form.on('Inventory Count', {
                 });
             }
         });
-    },
-    inv_physical_items_remove: function(frm, cdt, cdn) {
-        // **Action principale : Sauvegarder le formulaire parent**
-        frm.save(); 
     }
 });
 
