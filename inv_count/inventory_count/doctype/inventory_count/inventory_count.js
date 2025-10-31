@@ -602,28 +602,26 @@ function checkAllDifferencesConfirmed(frm, resolve, reject) {
     }
 }
 
-// --- Child Table Event Handlers (Outside main frappe.ui.form.on) ---
-// These apply to changes within rows of the child table, not the parent form.
 frappe.ui.form.on('Inv_physical_items', {
     qty: function(frm, cdt, cdn) {
         const row = locals[cdt][cdn];
-        if (!row) return;
-        // Persist only the changed row
+        if (!row || !row.code) return;
+        
         if (debug_mode) console.log("Physical Items qty changed, updating backend for row:", row);
         frappe.call({
-            method: 'inv_count.inventory_count.doctype.inventory_count.inventory_count.update_physical_item_row',
+            method: 'inv_count.inventory_count.doctype.inventory_count.inventory_count.upsert_physical_item',
             args: {
-                row_name: row.code,
+                parent_name: frm.doc.name,
+                code: row.code,
                 qty: row.qty,
                 description: row.description,
                 expected_qty: row.expected_qty
             },
             callback: function(r) {
-                if (r.message && r.message.row) {
-                    // Update local doc with returned values if needed
-                    frappe.model.set_value(cdt, cdn, 'qty', r.message.row.qty);
-                    frappe.model.set_value(cdt, cdn, 'description', r.message.row.description);
-                    frappe.model.set_value(cdt, cdn, 'expected_qty', r.message.row.expected_qty);
+                if (r.message && r.message.items) {
+                    // Replace all rows with server response
+                    frm.set_value('inv_physical_items', r.message.items);
+                    frm.refresh_field('inv_physical_items');
                     applyPhysicalItemsColoring(frm);
                 }
             }
@@ -631,18 +629,30 @@ frappe.ui.form.on('Inv_physical_items', {
     },
     code: function(frm, cdt, cdn) {
         const row = locals[cdt][cdn];
-        if (!row) return;
+        if (!row || !row.code) return;
         frappe.call({
-            method: 'inv_count.inventory_count.doctype.inventory_count.inventory_count.update_physical_item_row',
-            args: { row_name: row.name, description: row.description, qty: row.qty, expected_qty: row.expected_qty }
+            method: 'inv_count.inventory_count.doctype.inventory_count.inventory_count.upsert_physical_item',
+            args: {
+                parent_name: frm.doc.name,
+                code: row.code,
+                qty: row.qty,
+                description: row.description,
+                expected_qty: row.expected_qty
+            }
         });
     },
     description: function(frm, cdt, cdn) {
         const row = locals[cdt][cdn];
-        if (!row) return;
+        if (!row || !row.code) return;
         frappe.call({
-            method: 'inv_count.inventory_count.doctype.inventory_count.inventory_count.update_physical_item_row',
-            args: { row_name: row.name, description: row.description }
+            method: 'inv_count.inventory_count.doctype.inventory_count.inventory_count.upsert_physical_item',
+            args: {
+                parent_name: frm.doc.name,
+                code: row.code,
+                qty: row.qty,
+                description: row.description,
+                expected_qty: row.expected_qty
+            }
         });
     }
 });
