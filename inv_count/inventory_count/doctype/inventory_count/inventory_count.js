@@ -146,6 +146,10 @@ frappe.ui.form.on('Inventory Count', {
                 frm.reload_doc();
             }
         });
+        frappe.realtime.on('inv_physical_items_refresh', (data) => {
+            console.log("Refresh request for inv_physical_items received.");
+            frm.refresh_field('inv_physical_items');
+        });
 
         const physicalItemsTable = 'inv_physical_items';
         const virtualItemsTable = 'inv_virtual_items';
