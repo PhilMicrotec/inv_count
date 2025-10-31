@@ -448,6 +448,10 @@ frappe.ui.form.on('Inventory Count', {
                 });
             }
         });
+    },
+    inv_physical_items_remove: function(frm, cdt, cdn) {
+        // **Action principale : Sauvegarder le formulaire parent**
+        frm.save(); 
     }
 });
 
@@ -606,14 +610,8 @@ function checkAllDifferencesConfirmed(frm, resolve, reject) {
                 });
             
     }
+    
 }
-
-
-frappe.ui.form.on('Inv_physical_items', {
-    fieldname_remove: function(frm, cdt, cdn) {
-        this.frm.save(); // Save the form to persist deletion
-    }
-});
 
 
 // --- Helper Function for Coloring ---
