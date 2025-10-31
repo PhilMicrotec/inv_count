@@ -900,9 +900,9 @@ def get_connectwise_type_adjustments():
 @frappe.whitelist()
 def upsert_physical_item(parent_name, code, qty=1, description='', expected_qty=0):
     """
-    Insert or update a single Inv_physical_items child row for parent Inventory Count.
-    More robust: find child by (parent, code), update via db.set_value with fallback to save(ignore_permissions),
-    insert with explicit parent fields and ignore_permissions.
+    Atomic upsert: try an UPDATE that does qty = qty + <inc>.
+    If no row was updated, INSERT a new child row (with explicit parent fields).
+    Returns the refreshed child rows list.
     """
     import traceback
     child_doctype = "Inv_physical_items"
@@ -910,55 +910,53 @@ def upsert_physical_item(parent_name, code, qty=1, description='', expected_qty=
         if not parent_name:
             frappe.throw(_("parent_name is required"))
 
-        # Normalize numeric qty
         try:
-            qty = int(qty)
+            inc = int(qty)
         except Exception:
-            qty = 1
+            inc = 1
 
-        # Look for existing child row in DB (avoid relying on parent.get() which may contain unsaved local rows)
-        existing = frappe.get_all(child_doctype,
-                                  filters={
-                                      "parent": parent_name,
-                                      "parentfield": "inv_physical_items",
-                                      "parenttype": "Inventory Count",
-                                      "code": code
-                                  },
-                                  fields=["name", "qty", "description", "expected_qty"],
-                                  limit=1)
+        # 1) Try atomic UPDATE (qty = qty + inc). Update description/expected_qty only when provided.
+        update_sql = """
+            UPDATE `tabInv_physical_items`
+            SET qty = COALESCE(qty, 0) + %s
+            {desc_clause}
+            {expected_clause}
+            WHERE parent=%s AND parentfield=%s AND parenttype=%s AND code=%s
+        """
 
-        if existing:
-            existing = existing[0]
-            current_qty = int(existing.get("qty") or 0)
-            new_qty = current_qty + qty
+        desc_clause = ""
+        expected_clause = ""
+        params = [inc]
 
-            # Try low-level update first
+        if description is not None and description != "":
+            desc_clause = ", description = %s"
+            params.append(description)
+
+        if expected_qty is not None and expected_qty != "":
+            expected_clause = ", expected_qty = %s"
+            # coerce expected_qty to int when possible
             try:
-                frappe.db.set_value(child_doctype, existing.get("name"),
-                                    {"qty": new_qty,
-                                     "description": description or existing.get("description"),
-                                     "expected_qty": expected_qty or existing.get("expected_qty")},
-                                    update_modified=False)
-            except Exception as e:
-                # Fallback: load document and save while ignoring permissions
-                frappe.log_error(f"set_value failed for {existing.get('name')}, falling back to save(ignore_permissions=True): {e}", "upsert_physical_item fallback")
-                child_doc = frappe.get_doc(child_doctype, existing.get("name"))
-                child_doc.qty = new_qty
-                if description:
-                    child_doc.description = description
-                if expected_qty is not None:
-                    child_doc.expected_qty = expected_qty
-                child_doc.save(ignore_permissions=True)
+                params.append(int(expected_qty))
+            except Exception:
+                params.append(expected_qty)
 
-        else:
-            # Create a new child row with explicit parent fields
+        # parent params
+        params.extend([parent_name, "inv_physical_items", "Inventory Count", code])
+
+        frappe.db.sql(update_sql.format(desc_clause=desc_clause, expected_clause=expected_clause), params)
+
+        # 2) If the row does not exist after UPDATE, insert it
+        existing = frappe.db.get_value(child_doctype,
+                                       {"parent": parent_name, "parentfield": "inv_physical_items", "parenttype": "Inventory Count", "code": code},
+                                       ["name"])
+        if not existing:
             child = frappe.get_doc({
                 "doctype": child_doctype,
                 "parent": parent_name,
                 "parentfield": "inv_physical_items",
                 "parenttype": "Inventory Count",
                 "code": code,
-                "qty": qty,
+                "qty": inc,
                 "description": description,
                 "expected_qty": expected_qty
             })
@@ -975,53 +973,4 @@ def upsert_physical_item(parent_name, code, qty=1, description='', expected_qty=
     except Exception:
         frappe.db.rollback()
         frappe.log_error(traceback.format_exc(), "upsert_physical_item")
-        raise
-
-
-@frappe.whitelist()
-def update_physical_item_row(row_name, qty=None, description=None, expected_qty=None):
-    """
-    Update a single Inv_physical_items row by name. Returns the updated row dict.
-    Fallbacks to save(ignore_permissions=True) if direct db update fails due to permissions.
-    """
-    import traceback
-    child_doctype = "Inv_physical_items"
-    try:
-        if not row_name or not frappe.db.exists(child_doctype, row_name):
-            frappe.throw(_("Invalid or missing row_name"))
-
-        values = {}
-        if qty is not None:
-            # try to coerce numeric
-            try:
-                values["qty"] = int(qty)
-            except Exception:
-                values["qty"] = qty
-        if description is not None:
-            values["description"] = description
-        if expected_qty is not None:
-            try:
-                values["expected_qty"] = int(expected_qty)
-            except Exception:
-                values["expected_qty"] = expected_qty
-
-        if values:
-            try:
-                frappe.db.set_value(child_doctype, row_name, values, update_modified=False)
-                frappe.db.commit()
-            except Exception as e:
-                # fallback to loading the doc and saving while ignoring permissions
-                frappe.log_error(f"set_value failed for {row_name}, falling back to save(ignore_permissions=True): {e}", "update_physical_item_row fallback")
-                child = frappe.get_doc(child_doctype, row_name)
-                for k, v in values.items():
-                    setattr(child, k, v)
-                child.save(ignore_permissions=True)
-                frappe.db.commit()
-
-        row = frappe.get_doc(child_doctype, row_name)
-        return {"status": "success", "row": {"name": row.name, "code": row.code, "qty": row.qty, "description": row.description, "expected_qty": row.expected_qty}}
-
-    except Exception:
-        frappe.db.rollback()
-        frappe.log_error(traceback.format_exc(), "update_physical_item_row")
         raise
