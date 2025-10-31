@@ -257,20 +257,6 @@ frappe.ui.form.on('Inventory Count', {
                     currentScannedCode = e.target.value;
                 });
 
-                const child_table_fieldname = 'inv_physical_items';
-                frm.fields_dict[child_table_fieldname].grid.wrapper.on('keydown', 'input', function(e) {
-                    if (e.shiftKey && (e.key === 'Enter' || e.keyCode === 13)) {
-                        e.preventDefault();
-        
-                        const $input = $(this);
-                        const $row = $input.closest('.grid-row');
-                        const row_name = $row.attr('data-name');
-                        const doc = frappe.get_doc('Inv_physical_items', row_name); 
-                        console.log("Modified row", doc)
-                        this.frm.save(); // Save the parent form
-                    }
-                });
-
                 // The onkeypress logic for the 'code' field itself (handles Enter)
                 codeFieldInput.onkeypress = function(e) {
                     if (e.keyCode === 13) { // Enter key
