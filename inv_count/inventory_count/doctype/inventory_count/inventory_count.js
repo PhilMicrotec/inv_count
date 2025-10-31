@@ -1,6 +1,8 @@
 // inv_count/inventory_count/doctype/inventory_count/inventory_count.js
 let auto_update = true; // Flag to control automatic updates
 let debug_mode = false; // Flag to track if debug mode is active
+let lastScanTime = 0;
+const SCAN_DEBOUNCE_MS = 500; // 500ms de délai entre les scans
 
 frappe.ui.form.on('Inventory Count', {
     refresh: function(frm) {
@@ -261,6 +263,14 @@ frappe.ui.form.on('Inventory Count', {
                 codeFieldInput.onkeypress = function(e) {
                     if (e.keyCode === 13) { // Enter key
                         e.preventDefault(); // Prevent default form submission or new line
+
+                        // Debounce to prevent rapid multiple submissions
+                        const currentTime = new Date().getTime();
+                        if (currentTime - lastScanTime < SCAN_DEBOUNCE_MS) {
+                            if (debug_mode) console.log("Scan trop rapide, ignoré");
+                            return;
+                        }
+                        lastScanTime = currentTime;
 
                         const enteredCode = currentScannedCode.trim();
 
