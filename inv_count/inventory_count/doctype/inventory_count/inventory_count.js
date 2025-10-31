@@ -208,6 +208,12 @@ frappe.ui.form.on('Inventory Count', {
                     codeFieldInput.value = codeFieldInput.value.slice(0, -1);
                 }
             } else if (event.key === 'Enter') {
+                const currentTime = new Date().getTime();
+                if (currentTime - lastScanTime < SCAN_DEBOUNCE_MS) {
+                    if (debug_mode) console.log("Scan trop rapide, ignoré");
+                    return;
+                }
+                lastScanTime = currentTime;
                 // When Enter is pressed globally, simulate an 'Enter' keypress on the 'code' field.
                 // This triggers the specific onkeypress logic for that field.
                 const enterEvent = new KeyboardEvent('keypress', {
