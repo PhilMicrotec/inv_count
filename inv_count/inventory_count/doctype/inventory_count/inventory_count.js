@@ -609,6 +609,7 @@ frappe.ui.form.on('Inv_physical_items', {
         const row = locals[cdt][cdn];
         if (!row) return;
         // Persist only the changed row
+        if (debug_mode) console.log("Physical Items qty changed, updating backend for row:", row);
         frappe.call({
             method: 'inv_count.inventory_count.doctype.inventory_count.inventory_count.update_physical_item_row',
             args: {
