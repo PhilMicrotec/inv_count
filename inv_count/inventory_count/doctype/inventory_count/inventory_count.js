@@ -146,11 +146,9 @@ frappe.ui.form.on('Inventory Count', {
                 frm.reload_doc();
             }
         });
-        frappe.realtime.on('inv_physical_items_refresh', (data) => {
-            console.log("Refresh request for inv_physical_items received.");
-            frm.clear_table('inv_physical_items');  // Clear existing rows
-            frm.refresh_field('inv_physical_items'); // Refresh empty table
-            frm.set_value('inv_physical_items', r.message.items); // Set new data
+        frappe.realtime.on('inv_physical_items_refresh', (r) => {
+            console.log("Refresh request for inv_physical_items received via realtime." + r.items);
+            frm.set_value('inv_physical_items', r.items); // Set new data
             frm.refresh_field('inv_physical_items'); // Refresh again with new data
             applyPhysicalItemsColoring(frm); // Apply coloring
         });
