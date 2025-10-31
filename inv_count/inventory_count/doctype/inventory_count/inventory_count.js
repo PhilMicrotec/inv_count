@@ -624,63 +624,7 @@ function checkAllDifferencesConfirmed(frm, resolve, reject) {
     }
 }
 
-frappe.ui.form.on('Inv_physical_items', {
-    qty: function(frm, cdt, cdn) {
-        const row = locals[cdt][cdn];
-        if (!row || !row.code) return;
-        
-        if (debug_mode) console.log("Physical Items qty changed, updating backend for row:", row);
-        frappe.call({
-            method: 'inv_count.inventory_count.doctype.inventory_count.inventory_count.upsert_physical_item',
-            args: {
-                parent_name: frm.doc.name,
-                code: row.code,
-                qty: row.qty,
-                description: row.description,
-                expected_qty: row.expected_qty
-            },
-            callback: function(r) {
-                if (r.message && r.message.items) {
-                    // Replace all rows with server response
-                    frm.set_value('inv_physical_items', r.message.items);
-                    frm.refresh_field('inv_physical_items');
-                    applyPhysicalItemsColoring(frm);
-                }
-                frm.set_value('code', ''); // Clear the main 'code' field for next scan
-                frm.refresh_field('code'); // Refresh the 'code' field display
-                currentScannedCode = '';
-            }
-        });
-    },
-    code: function(frm, cdt, cdn) {
-        const row = locals[cdt][cdn];
-        if (!row || !row.code) return;
-        frappe.call({
-            method: 'inv_count.inventory_count.doctype.inventory_count.inventory_count.upsert_physical_item',
-            args: {
-                parent_name: frm.doc.name,
-                code: row.code,
-                qty: row.qty,
-                description: row.description,
-                expected_qty: row.expected_qty
-            },
-        });
-    },
-    description: function(frm, cdt, cdn) {
-        const row = locals[cdt][cdn];
-        if (!row || !row.code) return;
-        frappe.call({
-            method: 'inv_count.inventory_count.doctype.inventory_count.inventory_count.upsert_physical_item',
-            args: {
-                parent_name: frm.doc.name,
-                code: row.code,
-                qty: row.qty,
-                description: row.description,
-                expected_qty: row.expected_qty
-            }
-        });
-    }
-});
+
 
 // --- Helper Function for Coloring ---
 function applyPhysicalItemsColoring(frm) {
