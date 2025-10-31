@@ -677,3 +677,9 @@ function python_request_in_progress(bool) {
         auto_update = true;
     }
 }
+
+frappe.ui.form.on('Inv_physical_items', {
+    inv_physical_items_remove: function(frm, cdt, cdn) {
+        this.frm.save();
+    }
+});
