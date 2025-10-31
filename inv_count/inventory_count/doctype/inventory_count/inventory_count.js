@@ -4,20 +4,6 @@ let debug_mode = false; // Flag to track if debug mode is active
 
 frappe.ui.form.on('Inventory Count', {
     refresh: function(frm) {
-        const child_table_fieldname = 'inv_physical_items';
-        frm.fields_dict[child_table_fieldname].grid.wrapper.on('keydown', 'input', function(e) {
-            if (e.shiftKey && (e.key === 'Enter' || e.keyCode === 13)) {
-                e.preventDefault();
- 
-                const $input = $(this);
-                const $row = $input.closest('.grid-row');
-                const row_name = $row.attr('data-name');
-                const doc = frappe.get_doc('Inv_physical_items', row_name); 
-                console.log("Modified row", doc)
-                this.frm.save(); // Save the parent form
-            }
-        });
-
         // --- Debug Mode Visibility Logic ---
         // Fetches 'debug_mode' setting from 'Inventory Count Settings' and adjusts field visibility.
         frappe.db.get_single_value('Inventory Count Settings', 'debug_mode')
@@ -269,6 +255,20 @@ frappe.ui.form.on('Inventory Count', {
                 // Ensure the 'input' event handler correctly updates currentScannedCode
                 codeFieldInput.addEventListener('input', function(e) {
                     currentScannedCode = e.target.value;
+                });
+
+                const child_table_fieldname = 'inv_physical_items';
+                frm.fields_dict[child_table_fieldname].grid.wrapper.on('keydown', 'input', function(e) {
+                    if (e.shiftKey && (e.key === 'Enter' || e.keyCode === 13)) {
+                        e.preventDefault();
+        
+                        const $input = $(this);
+                        const $row = $input.closest('.grid-row');
+                        const row_name = $row.attr('data-name');
+                        const doc = frappe.get_doc('Inv_physical_items', row_name); 
+                        console.log("Modified row", doc)
+                        this.frm.save(); // Save the parent form
+                    }
                 });
 
                 // The onkeypress logic for the 'code' field itself (handles Enter)
