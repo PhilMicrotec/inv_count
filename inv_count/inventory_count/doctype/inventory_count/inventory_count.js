@@ -613,7 +613,7 @@ frappe.ui.form.on('Inv_physical_items', {
         frappe.call({
             method: 'inv_count.inventory_count.doctype.inventory_count.inventory_count.update_physical_item_row',
             args: {
-                row_name: row.name,
+                row_name: row.code,
                 qty: row.qty,
                 description: row.description,
                 expected_qty: row.expected_qty
