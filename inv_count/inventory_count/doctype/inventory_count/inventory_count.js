@@ -328,43 +328,7 @@ frappe.ui.form.on('Inventory Count', {
                                 }
                             }
 
-                            if (!foundExistingRow) {
-                                // Optimistically update UI
-                                const newRow = frm.add_child(physicalItemsTable);
-                                newRow.code = enteredCode;
-                                newRow.qty = 1;
-                                newRow.description = itemDescription;
-                                newRow.expected_qty = expectedQty;
-                                frm.refresh_field(physicalItemsTable);
-                                applyPhysicalItemsColoring(frm);
-                                frm.set_value('code', '');
-                                frm.refresh_field('code');
-
-                                // Persist via server and refresh only the child table when done
-                                frappe.call({
-                                    method: 'inv_count.inventory_count.doctype.inventory_count.inventory_count.upsert_physical_item',
-                                    args: {
-                                        parent_name: frm.doc.name,
-                                        code: enteredCode,
-                                        qty: 1,
-                                        description: itemDescription,
-                                        expected_qty: expectedQty
-                                    },
-                                    callback: function(r) {
-                                        if (r.message && r.message.items) {
-                                            frm.set_value('code', ''); // Clear the main 'code' field for next scan
-                                            frm.refresh_field('code'); // Refresh the 'code' field display
-                                            currentScannedCode = '';
-                                            frm.set_value('inv_physical_items', r.message.items);
-                                            frm.refresh_field('inv_physical_items');
-                                            applyPhysicalItemsColoring(frm);
-                                        }
-                                    },
-                                    error: function(err) {
-                                        console.error('Error persisting physical item:', err);
-                                    }
-                                });
-                            }
+                            
                         } else {
                             frappe.show_alert({
                                 message: __("Veuillez entrer un code avant d'appuyer sur Entrée."),
