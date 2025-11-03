@@ -754,7 +754,7 @@ def push_confirmed_differences_to_connectwise(doc_name):
                 catalog_item_id = detail.get('catalogItem', {}).get('id', 'N/A')
                 item_identifier = f"ID:{catalog_item_id} SN:{detail.get('serialNumber', 'N/A')}" 
                 
-                adjustments_details_api_endpoint = f"{connectwise_api_url}/procurement/adjustments/{parent_id}/details"
+                adjustments_details_api_endpoint = f"{connectwise_api_url}/procurement/adjustments/{parentId}/details"
                 try:
                     details_response = requests.post(adjustments_details_api_endpoint, headers=headers, data=json.dumps(detail), timeout=60)
                     details_response.raise_for_status() # Raise an exception for bad status codes
