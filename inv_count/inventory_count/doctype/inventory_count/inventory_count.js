@@ -684,8 +684,22 @@ function python_request_in_progress(bool) {
 }
 
 frappe.ui.form.on('Inv_physical_items', {
+    qty: function(frm, cdt, cdn) {
+        const row = locals[cdt][cdn];
+        if (!row) return;
+        if (auto_update) {
+            python_request_in_progress(true);
+            if (debug_mode) console.log("Manual qty change detected, saving form");
+            frm.save();
+            python_request_in_progress(false);
+        }
+        
+        
+    },
     inv_physical_items_remove: function(frm, cdt, cdn) {
         if (debug_mode) console.log("Physical item row removed, saving parent form.");
-        if (auto_update) frm.save();
+        python_request_in_progress(true);
+        frm.save();
+        python_request_in_progress(false);
     }
 });
