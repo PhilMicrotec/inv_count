@@ -60,6 +60,11 @@
    "fieldname": "recid",
    "fieldtype": "Int",
    "label": "RecID"
+  },
+  {
+   "fieldname": "response",
+   "fieldtype": "Small Text",
+   "label": "Response"
   }
  ],
  "grid_page_length": 50,

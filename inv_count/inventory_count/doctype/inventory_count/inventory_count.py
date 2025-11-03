@@ -750,25 +750,94 @@ def push_confirmed_differences_to_connectwise(doc_name):
 
             # Step 2: Iterate and send each adjustment detail individually
             for detail in adjustment_details_list:
-                adjustments_details_api_endpoint = f"{connectwise_api_url}/procurement/adjustments/{parentId}/details"
+                # S'assurer que ConnectWise ID est disponible pour l'identification
+                catalog_item_id = detail.get('catalogItem', {}).get('id', 'N/A')
+                item_identifier = f"ID:{catalog_item_id} SN:{detail.get('serialNumber', 'N/A')}" 
+                
+                adjustments_details_api_endpoint = f"{connectwise_api_url}/procurement/adjustments/{parent_id}/details"
                 try:
                     details_response = requests.post(adjustments_details_api_endpoint, headers=headers, data=json.dumps(detail), timeout=60)
                     details_response.raise_for_status() # Raise an exception for bad status codes
                     pushed_count += 1
 
                 except requests.exceptions.RequestException as detail_req_err:
-                    error_detail = f"Failed to push detail for item '{detail.get('catalogItem', {}).get('identifier', 'N/A')}': {detail_req_err}"
+                    
+                    error_detail = f"Failed to push detail for item '{item_identifier}': {detail_req_err}"
+                    cw_raw_response_text = ""
+                    
                     if hasattr(detail_req_err, 'response') and detail_req_err.response is not None:
+                        cw_raw_response_text = detail_req_err.response.text
                         try:
+                            # Tenter d'obtenir le message d'erreur ConnectWise formaté
                             cw_error = detail_req_err.response.json()
                             error_message = cw_error.get('message', str(cw_error))
                             error_detail += f" - CW Error: {error_message} (Status: {detail_req_err.response.status_code})"
+                            
+                            # Préparer l'objet à sauvegarder (plus spécifique que le texte brut)
+                            error_object = {
+                                "status": detail_req_err.response.status_code,
+                                "timestamp": frappe.utils.now(),
+                                "serial_number": detail.get('serialNumber', 'N/A'),
+                                "message": cw_error, # Sauvegarde du JSON d'erreur complet de CW
+                            }
+
                         except json.JSONDecodeError:
-                            error_detail += f" - CW Raw Response: {detail_req_err.response.text}"
-                    failed_detail_pushes.append(error_detail)
-                except Exception as detail_err:
-                    error_detail = f"Error Pushing to CW : {detail_err}"
+                            error_detail += f" - CW Raw Response: {cw_raw_response_text}"
+                            error_object = {
+                                "status": detail_req_err.response.status_code if hasattr(detail_req_err.response, 'status_code') else 'N/A',
+                                "timestamp": frappe.utils.now(),
+                                "serial_number": detail.get('serialNumber', 'N/A'),
+                                "message": cw_raw_response_text,
+                            }
+                    else:
+                        error_object = {
+                            "status": "Request Error",
+                            "timestamp": frappe.utils.now(),
+                            "serial_number": detail.get('serialNumber', 'N/A'),
+                            "message": str(detail_req_err),
+                        }
+
+
+                    # --- LOGIQUE D'ACCUMULATION SUR LA TABLE PARENT inv_difference ---
                     
+                    # 1. Rechercher la ligne parente correspondante (dans inv_difference)
+                    item_row_found = None
+                    if catalog_item_id != 'N/A':
+                        for item_row in doc.get("inv_difference"):
+                            if str(item_row.get("recid")) == str(catalog_item_id):
+                                item_row_found = item_row
+                                break
+                    
+                    # 2. Accumuler la réponse d'erreur dans le champ 'response' de la ligne parente
+                    if item_row_found and hasattr(item_row_found, 'response'):
+                        
+                        existing_errors = []
+                        try:
+                            # Tenter de charger le contenu existant comme JSON (liste d'erreurs)
+                            if item_row_found.response:
+                                existing_errors = json.loads(item_row_found.response)
+                                if not isinstance(existing_errors, list):
+                                    existing_errors = [] # Réinitialiser si le format est invalide
+                        except json.JSONDecodeError:
+                            # Si le contenu n'est pas un JSON valide, on le traite comme vide
+                            existing_errors = []
+
+                        # Ajouter la nouvelle erreur
+                        existing_errors.append(error_object)
+                        
+                        # Sauvegarder la liste mise à jour sous forme de chaîne JSON
+                        item_row_found.response = json.dumps(existing_errors, indent=4) 
+                        
+                        # Marquer l'échec pour persister le changement
+                        if hasattr(item_row_found, 'pushed_to_connectwise'):
+                             item_row_found.db_set('pushed_to_connectwise', 0)
+                            
+                    # --- FIN LOGIQUE D'ACCUMULATION ---
+                    
+                    failed_detail_pushes.append(error_detail)
+                    
+                except Exception as detail_err:
+                    error_detail = f"Error Pushing to CW ({item_identifier}): {detail_err}"
                     failed_detail_pushes.append(error_detail)
 
 
