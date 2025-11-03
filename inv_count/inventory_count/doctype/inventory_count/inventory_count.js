@@ -1,6 +1,7 @@
 // inv_count/inventory_count/doctype/inventory_count/inventory_count.js
 let auto_update = true; // Flag to control automatic updates
 let debug_mode = false; // Flag to track if debug mode is active
+let deleteTimeout = null;
 
 frappe.ui.form.on('Inventory Count', {
     refresh: function(frm) {
