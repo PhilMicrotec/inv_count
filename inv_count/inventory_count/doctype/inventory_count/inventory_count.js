@@ -313,11 +313,11 @@ frappe.ui.form.on('Inventory Count', {
                                             callback: function(r) {
                                                 if (r.message && r.message.items) {
                                                     // Replace and refresh only the child table
+                                                    frm.set_value('inv_physical_items', r.message.items);
+                                                    frm.refresh_field('inv_physical_items');
                                                     frm.set_value('code', ''); // Clear the main 'code' field for next scan
                                                     frm.refresh_field('code'); // Refresh the 'code' field display
                                                     currentScannedCode = '';
-                                                    frm.set_value('inv_physical_items', r.message.items);
-                                                    frm.refresh_field('inv_physical_items');
                                                     applyPhysicalItemsColoring(frm);
                                                 }
                                             }
@@ -690,7 +690,7 @@ frappe.ui.form.on('Inv_physical_items', {
         if (!row) return;
 
         // Vérifier si le changement vient d'un scan (currentScannedCode existe et n'est pas vide)
-        if (currentScannedCode) {
+        if (frm.doc.code && String(frm.doc.code).trim() !== '') {
             if (debug_mode) console.log("Qty change from barcode scan, skipping manual save");
             return;
         }
