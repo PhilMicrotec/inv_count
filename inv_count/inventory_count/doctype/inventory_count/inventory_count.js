@@ -267,6 +267,7 @@ frappe.ui.form.on('Inventory Count', {
                 codeFieldInput.onkeypress = function(e) {
                     if (e.keyCode === 13) { // Enter key
                         e.preventDefault(); // Prevent default form submission or new line
+                        python_request_in_progress(true);
 
                         const enteredCode = currentScannedCode.trim();
 
@@ -319,6 +320,7 @@ frappe.ui.form.on('Inventory Count', {
                                                     frm.set_value('code', ''); // Clear the main 'code' field for next scan
                                                     frm.refresh_field('code'); // Refresh the 'code' field display
                                                     currentScannedCode = '';
+                                                    python_request_in_progress(false);
                                                 }
                                             }
                                         });
@@ -354,6 +356,7 @@ frappe.ui.form.on('Inventory Count', {
                                             frm.set_value('code', ''); // Clear the main 'code' field for next scan
                                             frm.refresh_field('code'); // Refresh the 'code' field display
                                             currentScannedCode = '';
+                                            python_request_in_progress(false);
                                         }
                                     },
                                     error: function(err) {
@@ -681,22 +684,8 @@ function python_request_in_progress(bool) {
 }
 
 frappe.ui.form.on('Inv_physical_items', {
-    qty: function(frm, cdt, cdn) {
-        const row = locals[cdt][cdn];
-        if (!row) return;
-
-        // Vérifier si le changement vient d'un scan (currentScannedCode existe et n'est pas vide)
-        if (frm.doc.code && String(frm.doc.code).trim() !== '') {
-            if (debug_mode) console.log("Qty change from barcode scan, skipping manual save");
-            return;
-        }
-
-        if (debug_mode) console.log("Manual qty change detected, saving form");
-        frm.save();
-    },
-    
     inv_physical_items_remove: function(frm, cdt, cdn) {
         if (debug_mode) console.log("Physical item row removed, saving parent form.");
-        frm.save();
+        if (auto_update) frm.save();
     }
 });
