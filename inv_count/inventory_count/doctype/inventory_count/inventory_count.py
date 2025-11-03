@@ -849,7 +849,7 @@ def push_confirmed_differences_to_connectwise(doc_name):
             final_message = _(f"ConnectWise push process finished. {pushed_count} adjustment details pushed successfully.")
             if failed_detail_pushes:
                 final_message += _(f" {len(failed_detail_pushes)} detail pushes failed: {', '.join(failed_detail_pushes)}")
-                return {"status": "partial_success", "message": final_message, "debug": json.dumps(detail)}
+                return {"status": "partial_success", "message": final_message}
             else:
                 return {"status": "success", "message": final_message}
         except requests.exceptions.Timeout:
@@ -857,7 +857,7 @@ def push_confirmed_differences_to_connectwise(doc_name):
            
             failed_pushes.append(f"Consolidated Push: {error_detail}")
             print(error_detail) # Print to console for immediate visibility during dev
-            return {"status": "error", "message": error_detail, "debug": json.dumps(detail)}
+            return {"status": "error", "message": error_detail}
         except requests.exceptions.RequestException as req_err:
             error_detail = f"Failed to push consolidated adjustment: {req_err}"
             if hasattr(req_err, 'response') and req_err.response is not None:
@@ -869,12 +869,12 @@ def push_confirmed_differences_to_connectwise(doc_name):
                     error_detail += f" - CW Raw Response: {req_err.response.text}"
             failed_pushes.append(f"Consolidated Push: {error_detail}")
             print(error_detail) # Print to console for immediate visibility during dev
-            return {"status": "error", "message": error_detail, "debug": json.dumps(detail)}
+            return {"status": "error", "message": error_detail}
         except Exception as push_err:
             error_detail = f"An unexpected error occurred during consolidated push: {push_err}"
             failed_pushes.append(f"Consolidated Push: {error_detail}")
             print(error_detail) # Print to console for immediate visibility during dev
-            return {"status": "error", "message": error_detail, "debug": json.dumps(detail)}
+            return {"status": "error", "message": error_detail}
 
         
     
