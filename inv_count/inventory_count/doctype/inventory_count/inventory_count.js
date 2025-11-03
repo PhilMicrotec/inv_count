@@ -694,12 +694,18 @@ frappe.ui.form.on('Inv_physical_items', {
             python_request_in_progress(false);
         }
         
-        
     },
     inv_physical_items_remove: function(frm, cdt, cdn) {
-        if (debug_mode) console.log("Physical item row removed, saving parent form.");
-        python_request_in_progress(true);
-        frm.save();
-        python_request_in_progress(false);
+        // Clear any existing timeout
+        if (deleteTimeout) {
+            clearTimeout(deleteTimeout);
+        }
+        
+        // Set new timeout to execute save only once after all deletions
+        deleteTimeout = setTimeout(() => {
+            if (debug_mode) console.log("Physical item row(s) removed, saving parent form.");
+            frm.save();
+            deleteTimeout = null;
+        }, 100); // 100ms delay to catch multiple deletions
     }
 });
