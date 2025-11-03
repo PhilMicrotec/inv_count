@@ -685,6 +685,20 @@ function python_request_in_progress(bool) {
 }
 
 frappe.ui.form.on('Inv_physical_items', {
+    qty: function(frm, cdt, cdn) {
+        const row = locals[cdt][cdn];
+        if (!row) return;
+
+        // Vérifier si le changement vient d'un scan (currentScannedCode existe et n'est pas vide)
+        if (currentScannedCode) {
+            if (debug_mode) console.log("Qty change from barcode scan, skipping manual save");
+            return;
+        }
+
+        if (debug_mode) console.log("Manual qty change detected, saving form");
+        frm.save();
+    },
+    
     inv_physical_items_remove: function(frm, cdt, cdn) {
         if (debug_mode) console.log("Physical item row removed, saving parent form.");
         frm.save();
