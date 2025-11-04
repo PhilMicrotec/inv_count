@@ -774,7 +774,7 @@ def push_confirmed_differences_to_connectwise(doc_name):
                             error_detail += f" - CW Raw Response: {detail_req_err.response.text}"
                     # --- ADDED: Save the error message to the child table row ---
                     if frappe_item_row:
-                        frappe_item_row.db_set('response', details_response.get('errors')[0].get('message')) # Truncate to 140 chars
+                        frappe_item_row.db_set('response', details_response.get('errors')[0].get('message')) 
                     # -------------------------------------------------------------
                     failed_detail_pushes.append(error_detail)
                 except Exception as detail_err:
@@ -782,7 +782,7 @@ def push_confirmed_differences_to_connectwise(doc_name):
 
                     # --- ADDED: Save the error message to the child table row ---
                     if frappe_item_row:
-                        frappe_item_row.db_set('response', details_response.get('errors')[0].get('message')) # Truncate to 140 chars
+                        frappe_item_row.db_set('response', details_response.get('errors')[0].get('message')) 
                     # -------------------------------------------------------------
                     
                     failed_detail_pushes.append(error_detail)
@@ -796,7 +796,14 @@ def push_confirmed_differences_to_connectwise(doc_name):
             final_message = _(f"ConnectWise push process finished. {pushed_count} adjustment details pushed successfully.")
             if failed_detail_pushes:
                 final_message += _(f" {len(failed_detail_pushes)} detail pushes failed: {', '.join(failed_detail_pushes)}")
-                return {"status": "partial_success", "message": final_message, "debug": json.dumps(detail)}
+                frappe.db.commit()
+                refreshed = frappe.get_all(
+                            "Inv_difference",
+                            filters={"parent": doc.name, "parentfield": "inv_difference", "parenttype": "Inventory Count"},
+                            fields=["name", "item_code", "response", "difference_qty", "physical_qty", "virtual_qty", "confirmed"],
+                            order_by="creation"
+                        )
+                return {"status": "partial_success", "message": final_message, "items": refreshed, "docname": doc.name}
             else:
                 return {"status": "success", "message": final_message}
         except requests.exceptions.Timeout:

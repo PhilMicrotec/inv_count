@@ -590,7 +590,11 @@ function checkAllDifferencesConfirmed(frm, resolve, reject) {
                             message: r.message.message,
                             indicator: 'orange'
                         }, 15);
-                        console.log(r.message.debug);
+                        if (frm.doc && frm.doc.name && frm.doc.name !== r.message.docname) return;
+                        if (r.message.items && Array.isArray(r.message.items)) {
+                            frm.set_value('inv_difference', r.message.items);
+                            frm.refresh_field('inv_difference');
+                        }
                         reject(); // Resolve the Promise to allow submission even if some items failed
                         if (debug_mode) console.log("Push to ConnectWise partially successful, form reloaded.");
 
@@ -600,7 +604,6 @@ function checkAllDifferencesConfirmed(frm, resolve, reject) {
                             title: __('Error'),
                             indicator: 'red'
                         }, 15);
-                        console.log(r.message.debug);
                         reject();
                         python_request_in_progress(false); // Re-enable auto-update even if the API call fails
                     }
