@@ -774,7 +774,7 @@ def push_confirmed_differences_to_connectwise(doc_name):
                             error_detail += f" - CW Raw Response: {detail_req_err.response.text}"
                     # --- ADDED: Save the error message to the child table row ---
                     if frappe_item_row:
-                        frappe_item_row.db_set('response', detail_req_err.response.json().get('errors')[0].get('message')) 
+                        frappe_item_row.db_set('response', error_detail[:140]) 
                     # -------------------------------------------------------------
                     failed_detail_pushes.append(error_detail)
                 except Exception as detail_err:
@@ -782,7 +782,7 @@ def push_confirmed_differences_to_connectwise(doc_name):
 
                     # --- ADDED: Save the error message to the child table row ---
                     if frappe_item_row:
-                        frappe_item_row.db_set('response', detail_err.response.json().get('errors')[0].get('message')) 
+                        frappe_item_row.db_set('response', error_detail[:140]) 
                     # -------------------------------------------------------------
                     
                     failed_detail_pushes.append(error_detail)
