@@ -764,17 +764,10 @@ def push_confirmed_differences_to_connectwise(doc_name):
                         frappe_item_row.db_set('response', "Successfully pushed detail to ConnectWise")
 
                 except requests.exceptions.RequestException as detail_req_err:
-                    error_detail = f"Failed to push detail for item '{detail.get('catalogItem', {}).get('identifier', 'N/A')}': {detail_req_err}"
-                    if hasattr(detail_req_err, 'response') and detail_req_err.response is not None:
-                        try:
-                            cw_error = detail_req_err.response.json()
-                            error_message = cw_error.get('message', str(cw_error))
-                            error_detail += f" - CW Error: {error_message} (Status: {detail_req_err.response.status_code})"
-                        except json.JSONDecodeError:
-                            error_detail += f" - CW Raw Response: {detail_req_err.response.text}"
+                    error_detail = f"Error: {detail_req_err}"
                     # --- ADDED: Save the error message to the child table row ---
                     if frappe_item_row:
-                        frappe_item_row.db_set('response', error_detail[:140]) 
+                        frappe_item_row.db_set('response', error_detail) 
                     # -------------------------------------------------------------
                     failed_detail_pushes.append(error_detail)
                 except Exception as detail_err:
@@ -782,7 +775,7 @@ def push_confirmed_differences_to_connectwise(doc_name):
 
                     # --- ADDED: Save the error message to the child table row ---
                     if frappe_item_row:
-                        frappe_item_row.db_set('response', error_detail[:140]) 
+                        frappe_item_row.db_set('response', error_detail) 
                     # -------------------------------------------------------------
                     
                     failed_detail_pushes.append(error_detail)
@@ -800,7 +793,7 @@ def push_confirmed_differences_to_connectwise(doc_name):
                 refreshed = frappe.get_all(
                             "Inv_difference",
                             filters={"parent": doc.name, "parentfield": "inv_difference", "parenttype": "Inventory Count"},
-                            fields=["response"],
+                            fields=["item_code","description","physical_qty","virtual_qty","response"],
                             order_by="creation"
                         )
                 return {"status": "partial_success", "message": final_message, "items": refreshed, "docname": doc.name}
