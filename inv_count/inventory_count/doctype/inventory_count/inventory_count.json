@@ -117,7 +117,6 @@
    "depends_on": "eval:!(doc.__islocal)",
    "fieldname": "inventory_difference_section",
    "fieldtype": "Section Break",
-   "hidden": 1,
    "label": "Inventory Difference"
   },
   {

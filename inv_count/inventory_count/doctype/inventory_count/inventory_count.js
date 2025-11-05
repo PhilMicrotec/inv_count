@@ -1,6 +1,7 @@
 // inv_count/inventory_count/doctype/inventory_count/inventory_count.js
 let auto_update = true; // Flag to control automatic updates
 let debug_mode = false; // Flag to track if debug mode is active
+let deleteTimeout = null;
 
 frappe.ui.form.on('Inventory Count', {
     refresh: function(frm) {
@@ -10,7 +11,7 @@ frappe.ui.form.on('Inventory Count', {
             .then(debug_mode_setting => {
                 debug_mode = debug_mode_setting || false; // Default to false if not set
                 if (debug_mode) {
-                    cur_frm.set_df_property('inventory_difference_section', 'hidden', false);
+                    //cur_frm.set_df_property('inventory_difference_section', 'hidden', false);
                     cur_frm.set_df_property('section_virtual_inventory', 'hidden', false);
                 }
             })
@@ -146,6 +147,12 @@ frappe.ui.form.on('Inventory Count', {
                 frm.reload_doc();
             }
         });
+        frappe.realtime.on('inv_physical_items_refresh', (r) => {
+            console.log("Refresh request for inv_physical_items received via realtime." + r.items);
+            frm.set_value('inv_physical_items', r.items); // Set new data
+            frm.refresh_field('inv_physical_items'); // Refresh again with new data
+            applyPhysicalItemsColoring(frm); // Apply coloring
+        });
 
         const physicalItemsTable = 'inv_physical_items';
         const virtualItemsTable = 'inv_virtual_items';
@@ -261,6 +268,7 @@ frappe.ui.form.on('Inventory Count', {
                 codeFieldInput.onkeypress = function(e) {
                     if (e.keyCode === 13) { // Enter key
                         e.preventDefault(); // Prevent default form submission or new line
+                        python_request_in_progress(true);
 
                         const enteredCode = currentScannedCode.trim();
 
@@ -285,39 +293,77 @@ frappe.ui.form.on('Inventory Count', {
                                         const newQty = (row.qty || 0) + 1;
                                         foundExistingRow = true;
 
+                                        // Update local view immediately
                                         frappe.model.set_value(row.doctype, row.name, 'qty', newQty);
-                                        // Update description and expected_qty if they've changed in virtual inventory
                                         if (row.description !== itemDescription) {
                                             frappe.model.set_value(row.doctype, row.name, 'description', itemDescription);
                                         }
                                         if (row.expected_qty !== expectedQty) {
                                             frappe.model.set_value(row.doctype, row.name, 'expected_qty', expectedQty);
                                         }
+
+                                        // Persist only the single child row to backend (no full form save)
+                                        frappe.call({
+                                            method: 'inv_count.inventory_count.doctype.inventory_count.inventory_count.upsert_physical_item',
+                                            args: {
+                                                parent_name: frm.doc.name,
+                                                code: enteredCode,
+                                                qty: 1,
+                                                description: itemDescription,
+                                                expected_qty: expectedQty
+                                            },
+                                            callback: function(r) {
+                                                if (r.message && r.message.items) {
+                                                    // Replace and refresh only the child table
+                                                    frm.set_value('inv_physical_items', r.message.items);
+                                                    frm.refresh_field('inv_physical_items');
+                                                    applyPhysicalItemsColoring(frm);
+                                                    frm.set_value('code', ''); // Clear the main 'code' field for next scan
+                                                    frm.refresh_field('code'); // Refresh the 'code' field display
+                                                    currentScannedCode = '';
+                                                    python_request_in_progress(false);
+                                                }
+                                            }
+                                        });
+
                                         break;
                                     }
                                 }
                             }
 
                             if (!foundExistingRow) {
-                                // If not found, add a new row
+                                // Optimistically update UI
                                 const newRow = frm.add_child(physicalItemsTable);
                                 newRow.code = enteredCode;
                                 newRow.qty = 1;
                                 newRow.description = itemDescription;
                                 newRow.expected_qty = expectedQty;
-                            }
 
-                            frm.refresh_field(physicalItemsTable); // Refresh the child table display
-                            applyPhysicalItemsColoring(frm); // Re-apply coloring
-                            frm.set_value('code', ''); // Clear the main 'code' field for next scan
-                            frm.refresh_field('code'); // Refresh the 'code' field display
-
-                            // Reset the temporary variable for the next scan
-                            currentScannedCode = '';
-
-                            // Auto-save the document if a new item was added (otherwise, changes are handled by child table events)
-                            if (!foundExistingRow) {
-                                frm.save();
+                                // Persist via server and refresh only the child table when done
+                                frappe.call({
+                                    method: 'inv_count.inventory_count.doctype.inventory_count.inventory_count.upsert_physical_item',
+                                    args: {
+                                        parent_name: frm.doc.name,
+                                        code: enteredCode,
+                                        qty: 1,
+                                        description: itemDescription,
+                                        expected_qty: expectedQty
+                                    },
+                                    callback: function(r) {
+                                        if (r.message && r.message.items) {
+                                            frm.set_value('inv_physical_items', r.message.items);
+                                            frm.refresh_field('inv_physical_items');
+                                            applyPhysicalItemsColoring(frm);
+                                            frm.set_value('code', ''); // Clear the main 'code' field for next scan
+                                            frm.refresh_field('code'); // Refresh the 'code' field display
+                                            currentScannedCode = '';
+                                            python_request_in_progress(false);
+                                        }
+                                    },
+                                    error: function(err) {
+                                        console.error('Error persisting physical item:', err);
+                                    }
+                                });
                             }
                         } else {
                             frappe.show_alert({
@@ -544,7 +590,11 @@ function checkAllDifferencesConfirmed(frm, resolve, reject) {
                             message: r.message.message,
                             indicator: 'orange'
                         }, 15);
-                        console.log(r.message.debug);
+                        if (frm.doc && frm.doc.name && frm.doc.name !== r.message.docname) return;
+                        if (r.message.items && Array.isArray(r.message.items)) {
+                            frm.set_value('inv_difference', r.message.items);
+                            frm.refresh_field('inv_difference');
+                        }
                         reject(); // Resolve the Promise to allow submission even if some items failed
                         if (debug_mode) console.log("Push to ConnectWise partially successful, form reloaded.");
 
@@ -554,7 +604,6 @@ function checkAllDifferencesConfirmed(frm, resolve, reject) {
                             title: __('Error'),
                             indicator: 'red'
                         }, 15);
-                        console.log(r.message.debug);
                         reject();
                         python_request_in_progress(false); // Re-enable auto-update even if the API call fails
                     }
@@ -566,26 +615,9 @@ function checkAllDifferencesConfirmed(frm, resolve, reject) {
                 });
             
     }
+    
 }
 
-// --- Child Table Event Handlers (Outside main frappe.ui.form.on) ---
-// These apply to changes within rows of the child table, not the parent form.
-frappe.ui.form.on('Inv_physical_items', {
-    qty: function(frm, cdt, cdn) {
-        // Autosave when 'qty' is changed in a child table row
-        frm.save();
-        // Re-apply coloring as qty has changed
-        applyPhysicalItemsColoring(frm);
-    },
-    code: function(frm, cdt, cdn) {
-        // Autosave when 'code' is changed in a child table row
-        frm.save();
-    },
-    description: function(frm, cdt, cdn) {
-        // Autosave when 'description' is changed in a child table row
-        frm.save();
-    }
-});
 
 // --- Helper Function for Coloring ---
 function applyPhysicalItemsColoring(frm) {
@@ -654,3 +686,30 @@ function python_request_in_progress(bool) {
         auto_update = true;
     }
 }
+
+frappe.ui.form.on('Inv_physical_items', {
+    qty: function(frm, cdt, cdn) {
+        const row = locals[cdt][cdn];
+        if (!row) return;
+        if (auto_update) {
+            python_request_in_progress(true);
+            if (debug_mode) console.log("Manual qty change detected, saving form");
+            frm.save();
+            python_request_in_progress(false);
+        }
+        
+    },
+    inv_physical_items_remove: function(frm, cdt, cdn) {
+        // Clear any existing timeout
+        if (deleteTimeout) {
+            clearTimeout(deleteTimeout);
+        }
+        
+        // Set new timeout to execute save only once after all deletions
+        deleteTimeout = setTimeout(() => {
+            if (debug_mode) console.log("Physical item row(s) removed, saving parent form.");
+            frm.save();
+            deleteTimeout = null;
+        }, 100); // 100ms delay to catch multiple deletions
+    }
+});

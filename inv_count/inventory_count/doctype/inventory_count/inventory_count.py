@@ -14,6 +14,8 @@ import json
 from frappe.utils import get_datetime, get_timestamp
 import re
 
+response_details = None
+
 class InventoryCount(Document):
     pass
 
@@ -738,6 +740,7 @@ def push_confirmed_differences_to_connectwise(doc_name):
 
         pushed_count = 0
         failed_detail_pushes = [] # To track individual detail push failures
+        parentId = None
 
         try:
             # Step 1: Create the main inventory adjustment (uncommented this part)
@@ -746,28 +749,60 @@ def push_confirmed_differences_to_connectwise(doc_name):
 
             parentId = response.json().get('id') # Get the ID of the created adjustment
 
-            print(f"ConnectWise: Created adjustment with ID {parentId}.")
-
             # Step 2: Iterate and send each adjustment detail individually
             for detail in adjustment_details_list:
                 adjustments_details_api_endpoint = f"{connectwise_api_url}/procurement/adjustments/{parentId}/details"
+
+                # --- ADDED: Find the original Frappe item row using 'recid' ---
+                frappe_item_row = next((r for r in doc.get("inv_difference") 
+                       if r.recid == detail.get('catalogItem', {}).get('id')), None)
+
                 try:
+                    response_details = None
                     details_response = requests.post(adjustments_details_api_endpoint, headers=headers, data=json.dumps(detail), timeout=60)
+                    try:
+                        # Tente de convertir la réponse en JSON
+                        response_details = details_response.json()
+
+                    except json.JSONDecodeError:
+                        response_details = None
                     details_response.raise_for_status() # Raise an exception for bad status codes
                     pushed_count += 1
 
+                    # Set success message upon successful push
+                    if frappe_item_row:
+                        frappe_item_row.db_set('response', "Successfully pushed")
+
                 except requests.exceptions.RequestException as detail_req_err:
-                    error_detail = f"Failed to push detail for item '{detail.get('catalogItem', {}).get('identifier', 'N/A')}': {detail_req_err}"
-                    if hasattr(detail_req_err, 'response') and detail_req_err.response is not None:
-                        try:
-                            cw_error = detail_req_err.response.json()
-                            error_message = cw_error.get('message', str(cw_error))
-                            error_detail += f" - CW Error: {error_message} (Status: {detail_req_err.response.status_code})"
-                        except json.JSONDecodeError:
-                            error_detail += f" - CW Raw Response: {detail_req_err.response.text}"
+                    error_detail = f"Error: {detail_req_err}"
+                    if isinstance(response_details, dict):
+        
+                        # Tenter d'extraire la liste des messages d'erreur du tableau 'errors'
+                        error_messages = [
+                            err.get('message', 'Message inconnu')  # Utilise .get() pour la sécurité
+                            for err in response_details.get('errors', [])  # Utilise .get() pour la sécurité
+                        ]
+                        
+                        # Si nous avons des messages d'erreur spécifiques de l'API ConnectWise
+                        if error_messages:
+                            # Concaténer tous les messages pour une meilleure information
+                            error_detail = " | ".join(error_messages)
+                        else:
+                            # Sinon, afficher le message d'erreur général (ex: "adjustmentDetail object is invalid")
+                            general_message = response_details.get('message', 'API Error: Structure non standard.')
+                            error_detail = f"CW General Error: {general_message}"
+                    # --- ADDED: Save the error message to the child table row ---
+                    if frappe_item_row:
+                        frappe_item_row.db_set('response', error_detail[:140]) 
+                    # -------------------------------------------------------------
                     failed_detail_pushes.append(error_detail)
                 except Exception as detail_err:
                     error_detail = f"Error Pushing to CW : {detail_err}"
+
+                    # --- ADDED: Save the error message to the child table row ---
+                    if frappe_item_row:
+                        frappe_item_row.db_set('response', error_detail[:140]) 
+                    # -------------------------------------------------------------
                     
                     failed_detail_pushes.append(error_detail)
 
@@ -780,7 +815,17 @@ def push_confirmed_differences_to_connectwise(doc_name):
             final_message = _(f"ConnectWise push process finished. {pushed_count} adjustment details pushed successfully.")
             if failed_detail_pushes:
                 final_message += _(f" {len(failed_detail_pushes)} detail pushes failed: {', '.join(failed_detail_pushes)}")
-                return {"status": "partial_success", "message": final_message, "debug": json.dumps(detail)}
+                frappe.db.commit()
+                refreshed = frappe.get_all(
+                            "Inv_difference",
+                            filters={"parent": doc.name, "parentfield": "inv_difference", "parenttype": "Inventory Count"},
+                            fields=["item_code","description","physical_qty","virtual_qty","confirmed","response"],
+                            order_by="creation"
+                        )
+                if parentId:
+                    adjustments_delete_api_endpoint = f"{connectwise_api_url}/procurement/adjustments/{parentId}"
+                    response = requests.delete(adjustments_delete_api_endpoint, headers=headers, timeout=60)
+                return {"status": "partial_success", "message": final_message, "items": refreshed, "docname": doc.name}
             else:
                 return {"status": "success", "message": final_message}
         except requests.exceptions.Timeout:
@@ -805,9 +850,7 @@ def push_confirmed_differences_to_connectwise(doc_name):
             error_detail = f"An unexpected error occurred during consolidated push: {push_err}"
             failed_pushes.append(f"Consolidated Push: {error_detail}")
             print(error_detail) # Print to console for immediate visibility during dev
-            return {"status": "error", "message": error_detail, "debug": json.dumps(detail)}
-
-        
+            return {"status": "error", "message": error_detail, "debug": json.dumps(detail)}  
     
     except frappe.exceptions.ValidationError:
         frappe.db.rollback() 
@@ -895,3 +938,113 @@ def get_connectwise_type_adjustments():
         # Catch any other unexpected errors and log the traceback
         frappe.log_error(traceback.format_exc(), "General ConnectWise API Error fetching type adjustments")
         frappe.throw(f"An unexpected error occurred while fetching ConnectWise type adjustments: {e}", title="API Fetch Error")
+
+
+@frappe.whitelist()
+def upsert_physical_item(parent_name, code, qty=1, description='', expected_qty=0):
+    """
+    Atomic upsert with duplicate-insert fallback:
+    - trim/normalize code
+    - try UPDATE qty = qty + inc
+    - if UPDATE affected 0 rows, try INSERT
+    - if INSERT fails due to duplicate, retry UPDATE once
+    """
+    import traceback
+    child_doctype = "Inv_physical_items"
+    try:
+        if not parent_name:
+            frappe.throw(_("parent_name is required"))
+
+        if not code:
+            frappe.throw(_("code is required"))
+
+        # Normalize code to avoid duplicates due to whitespace/case
+        code = str(code).strip()
+
+        try:
+            inc = 1
+        except Exception:
+            inc = 1
+
+        desc_clause = ""
+        expected_clause = ""
+        params = [inc]
+
+        if description is not None and description != "":
+            desc_clause = ", description = %s"
+            params.append(description)
+
+        if expected_qty is not None and expected_qty != "":
+            expected_clause = ", expected_qty = %s"
+            try:
+                params.append(int(expected_qty))
+            except Exception:
+                params.append(expected_qty)
+
+        # parent params
+        params.extend([parent_name, "inv_physical_items", "Inventory Count", code])
+
+        update_sql = """
+            UPDATE `tabInv_physical_items`
+            SET qty = COALESCE(qty, 0) + %s
+            {desc_clause}
+            {expected_clause}
+            WHERE parent=%s AND parentfield=%s AND parenttype=%s AND code=%s
+        """.format(desc_clause=desc_clause, expected_clause=expected_clause)
+
+        # 1) Try atomic UPDATE
+        frappe.db.sql(update_sql, params)
+        # Get number of affected rows for the previous UPDATE
+        affected = 0
+        try:
+            affected = int(frappe.db.sql("SELECT ROW_COUNT()")[0][0])
+        except Exception:
+            affected = 0
+
+        # 2) If no row updated, try to INSERT (may race => catch duplicate and retry UPDATE)
+        if affected == 0:
+            try:
+                child = frappe.get_doc({
+                    "doctype": child_doctype,
+                    "parent": parent_name,
+                    "parentfield": "inv_physical_items",
+                    "parenttype": "Inventory Count",
+                    "code": code,
+                    "qty": inc,
+                    "description": description,
+                    "expected_qty": expected_qty
+                })
+                child.insert(ignore_permissions=True)
+                frappe.db.commit()
+            except Exception as e:
+                # If another transaction inserted the same row concurrently, retry the atomic UPDATE once
+                err_str = str(e)
+                if "Duplicate entry" in err_str or "Duplicate" in err_str:
+                    try:
+                        # Retry UPDATE to increment the qty
+                        frappe.db.sql(update_sql, params)
+                        frappe.db.commit()
+                    except Exception as e2:
+                        frappe.db.rollback()
+                        frappe.log_error(traceback.format_exc(), "upsert_physical_item retry update failed")
+                        raise
+                else:
+                    frappe.db.rollback()
+                    frappe.log_error(traceback.format_exc(), "upsert_physical_item insert failed")
+                    raise
+        else:
+            # UPDATE succeeded, commit
+            frappe.db.commit()
+
+        # Refresh and return rows
+        refreshed = frappe.get_all(child_doctype,
+                                  filters={"parent": parent_name, "parentfield": "inv_physical_items", "parenttype": "Inventory Count"},
+                                  fields=["name", "code", "description", "qty", "expected_qty"],
+                                  order_by="creation")
+        frappe.publish_realtime('inv_physical_items_refresh', {"items": refreshed})
+        return {"status": "success", "items": refreshed}
+
+    except Exception:
+        frappe.db.rollback()
+        frappe.log_error(traceback.format_exc(), "upsert_physical_item")
+        raise
