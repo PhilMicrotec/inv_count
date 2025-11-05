@@ -775,7 +775,7 @@ def push_confirmed_differences_to_connectwise(doc_name):
                 except requests.exceptions.RequestException as detail_req_err:
                     error_detail = f"Error: {detail_req_err}"
                     if response_details:
-                        error_detail = json.dumps(response_details)
+                        error_detail = response_details['errors'][0]['message']
                     # --- ADDED: Save the error message to the child table row ---
                     if frappe_item_row:
                         frappe_item_row.db_set('response', error_detail) 
@@ -804,7 +804,7 @@ def push_confirmed_differences_to_connectwise(doc_name):
                 refreshed = frappe.get_all(
                             "Inv_difference",
                             filters={"parent": doc.name, "parentfield": "inv_difference", "parenttype": "Inventory Count"},
-                            fields=["item_code","description","physical_qty","virtual_qty","response"],
+                            fields=["item_code","description","physical_qty","virtual_qty","confirmed","response"],
                             order_by="creation"
                         )
                 return {"status": "partial_success", "message": final_message, "items": refreshed, "docname": doc.name}

@@ -63,7 +63,7 @@
   },
   {
    "fieldname": "response",
-   "fieldtype": "Small Text",
+   "fieldtype": "Data",
    "label": "Response"
   }
  ],
