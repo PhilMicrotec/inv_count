@@ -740,6 +740,7 @@ def push_confirmed_differences_to_connectwise(doc_name):
 
         pushed_count = 0
         failed_detail_pushes = [] # To track individual detail push failures
+        parentId = None
 
         try:
             # Step 1: Create the main inventory adjustment (uncommented this part)
@@ -821,6 +822,9 @@ def push_confirmed_differences_to_connectwise(doc_name):
                             fields=["item_code","description","physical_qty","virtual_qty","confirmed","response"],
                             order_by="creation"
                         )
+                if parentId:
+                    adjustments_delete_api_endpoint = f"{connectwise_api_url}/procurement/adjustments/{parentId}"
+                    response = requests.delete(adjustments_delete_api_endpoint, headers=headers, timeout=60)
                 return {"status": "partial_success", "message": final_message, "items": refreshed, "docname": doc.name}
             else:
                 return {"status": "success", "message": final_message}
