@@ -800,7 +800,7 @@ def push_confirmed_differences_to_connectwise(doc_name):
                 refreshed = frappe.get_all(
                             "Inv_difference",
                             filters={"parent": doc.name, "parentfield": "inv_difference", "parenttype": "Inventory Count"},
-                            fields=["name", "item_code", "response", "difference_qty", "physical_qty", "virtual_qty", "confirmed"],
+                            fields=["response"],
                             order_by="creation"
                         )
                 return {"status": "partial_success", "message": final_message, "items": refreshed, "docname": doc.name}
