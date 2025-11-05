@@ -775,7 +775,7 @@ def push_confirmed_differences_to_connectwise(doc_name):
                 except requests.exceptions.RequestException as detail_req_err:
                     error_detail = f"Error: {detail_req_err}"
                     if response_details:
-                        error_detail = response_details['errors'][0]['message']
+                        error_detail = response_details['errors'][0].get('message', 'Erreur non spécifié')
                     # --- ADDED: Save the error message to the child table row ---
                     if frappe_item_row:
                         frappe_item_row.db_set('response', error_detail) 
