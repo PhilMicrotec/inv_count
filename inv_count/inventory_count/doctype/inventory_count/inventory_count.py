@@ -14,6 +14,8 @@ import json
 from frappe.utils import get_datetime, get_timestamp
 import re
 
+response_details = None
+
 class InventoryCount(Document):
     pass
 
@@ -755,7 +757,14 @@ def push_confirmed_differences_to_connectwise(doc_name):
                        if r.recid == detail.get('catalogItem', {}).get('id')), None)
 
                 try:
+                    response_details = None
                     details_response = requests.post(adjustments_details_api_endpoint, headers=headers, data=json.dumps(detail), timeout=60)
+                    try:
+                        # Tente de convertir la réponse en JSON
+                        response_details = details_response.json()
+
+                    except json.JSONDecodeError:
+                        response_details = None
                     details_response.raise_for_status() # Raise an exception for bad status codes
                     pushed_count += 1
 
@@ -765,6 +774,8 @@ def push_confirmed_differences_to_connectwise(doc_name):
 
                 except requests.exceptions.RequestException as detail_req_err:
                     error_detail = f"Error: {detail_req_err}"
+                    if response_details:
+                        error_detail = json.dumps(response_details)
                     # --- ADDED: Save the error message to the child table row ---
                     if frappe_item_row:
                         frappe_item_row.db_set('response', error_detail) 
