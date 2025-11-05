@@ -770,12 +770,26 @@ def push_confirmed_differences_to_connectwise(doc_name):
 
                     # Set success message upon successful push
                     if frappe_item_row:
-                        frappe_item_row.db_set('response', "Successfully pushed detail to ConnectWise")
+                        frappe_item_row.db_set('response', "Successfully pushed")
 
                 except requests.exceptions.RequestException as detail_req_err:
                     error_detail = f"Error: {detail_req_err}"
-                    if response_details:
-                        error_detail = response_details['errors'][0].get('message', 'Erreur non spécifié')
+                    if isinstance(response_details, dict):
+        
+                        # Tenter d'extraire la liste des messages d'erreur du tableau 'errors'
+                        error_messages = [
+                            err.get('message', 'Message inconnu')  # Utilise .get() pour la sécurité
+                            for err in response_details.get('errors', [])  # Utilise .get() pour la sécurité
+                        ]
+                        
+                        # Si nous avons des messages d'erreur spécifiques de l'API ConnectWise
+                        if error_messages:
+                            # Concaténer tous les messages pour une meilleure information
+                            error_detail = " | ".join(error_messages)
+                        else:
+                            # Sinon, afficher le message d'erreur général (ex: "adjustmentDetail object is invalid")
+                            general_message = response_details.get('message', 'API Error: Structure non standard.')
+                            error_detail = f"CW General Error: {general_message}"
                     # --- ADDED: Save the error message to the child table row ---
                     if frappe_item_row:
                         frappe_item_row.db_set('response', error_detail) 
