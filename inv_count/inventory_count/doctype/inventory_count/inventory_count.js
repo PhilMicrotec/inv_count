@@ -291,8 +291,6 @@ frappe.ui.form.on('Inventory Count', {
                                 for (let row of frm.doc[physicalItemsTable]) {
                                     if (row.code.toUpperCase() === enteredCode.toUpperCase()) {
                                         enteredCode = row.code; // Use the exact casing from existing row
-                                    }
-                                    if (row.code === enteredCode) {
                                         const newQty = (row.qty || 0) + 1;
                                         foundExistingRow = true;
 
@@ -336,6 +334,7 @@ frappe.ui.form.on('Inventory Count', {
 
                             if (!foundExistingRow) {
                                 // Optimistically update UI
+                                enteredCode=enteredCode.toUpperCase();
                                 const newRow = frm.add_child(physicalItemsTable);
                                 newRow.code = enteredCode;
                                 newRow.qty = 1;
