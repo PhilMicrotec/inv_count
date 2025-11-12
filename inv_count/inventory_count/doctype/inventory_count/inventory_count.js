@@ -270,7 +270,7 @@ frappe.ui.form.on('Inventory Count', {
                         e.preventDefault(); // Prevent default form submission or new line
                         python_request_in_progress(true);
 
-                        const enteredCode = currentScannedCode.trim();
+                        const enteredCode = currentScannedCode.trim().toUpperCase();
 
                         if (enteredCode) {
                             let foundExistingRow = false;
@@ -462,6 +462,12 @@ function checkAllDifferencesConfirmed(frm, resolve, reject) {
     const invDifferenceTable = frm.doc.inv_difference;
     let allConfirmed = true;
 
+    if (invDifferenceTable.length === 0) {
+        allConfirmed = false; // No differences to confirm
+        resolve();
+        return;
+    }
+    
     // Iterate through the inventory difference table to check if all relevant rows are confirmed.
     for (let i = 0; i < invDifferenceTable.length; i++) {
         const row = invDifferenceTable[i];
