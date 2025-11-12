@@ -270,7 +270,7 @@ frappe.ui.form.on('Inventory Count', {
                         e.preventDefault(); // Prevent default form submission or new line
                         python_request_in_progress(true);
 
-                        const enteredCode = currentScannedCode.trim();
+                        let enteredCode = currentScannedCode.trim();
 
                         if (enteredCode) {
                             let foundExistingRow = false;
