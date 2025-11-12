@@ -406,6 +406,10 @@ frappe.ui.form.on('Inventory Count', {
         frm.refresh_field('warehouse_bin'); // Refresh the dropdown to show new options
     },
 
+    category: function(frm) {
+            frm.save();
+    },
+
     // --- Before Submit Logic ---
     // This logic ensures necessary checks are performed before the document is submitted.
     // It now uses a Promise to handle the asynchronous comparison check,
@@ -466,6 +470,7 @@ function checkAllDifferencesConfirmed(frm, resolve, reject) {
 
     if (invDifferenceTable.length === 0) {
         allConfirmed = false; // No differences to confirm
+        python_request_in_progress(false);
         resolve();
         return;
     }
@@ -588,9 +593,9 @@ function checkAllDifferencesConfirmed(frm, resolve, reject) {
                             message: r.message.message,
                             indicator: 'green'
                         }, 15);
-                        
-                            resolve(); // Resolve the Promise to allow submission
-                            if (debug_mode) console.log("Push to ConnectWise successful, form reloaded.");
+                        python_request_in_progress(false);
+                        if (debug_mode) console.log("Push to ConnectWise successful, form reloaded.");
+                        resolve(); // Resolve the Promise to allow submission
                                                     
                     } else if (r.message.status === "partial_success") 
                     {
@@ -603,23 +608,24 @@ function checkAllDifferencesConfirmed(frm, resolve, reject) {
                             frm.set_value('inv_difference', r.message.items);
                             frm.refresh_field('inv_difference');
                         }
-                        reject(); // Resolve the Promise to allow submission even if some items failed
+                        python_request_in_progress(false);
                         if (debug_mode) console.log("Push to ConnectWise partially successful, form reloaded.");
-
+                        reject(); // Resolve the Promise to allow submission even if some items failed
                     } else {
                         frappe.show_alert({
                             message: r.message.message || __('An unexpected response was received from the server.'),
                             title: __('Error'),
                             indicator: 'red'
                         }, 15);
-                        reject();
                         python_request_in_progress(false); // Re-enable auto-update even if the API call fails
+                        if (debug_mode) console.log("Push to ConnectWise Failed.");
+                        reject();
                     }
                 }).catch(err => {
                     console.error("API Call Error:", err);
                     frappe.msgprint(__('An error occurred during the ConnectWise push API call. Check browser console and Frappe logs for details.'), __('Network Error'), 'red');
-                    reject();
                     python_request_in_progress(false); // Re-enable auto-update even if the API call fails
+                    reject();
                 });
             
     }
