@@ -279,7 +279,7 @@ frappe.ui.form.on('Inventory Count', {
 
                             // 1. Find description and QOH in virtual items first
                             if (frm.doc[virtualItemsTable] && frm.doc[virtualItemsTable].length > 0) {
-                                const virtualItem = frm.doc[virtualItemsTable].find(row => row.item_id === enteredCode);
+                                const virtualItem = frm.doc[virtualItemsTable].find(row => row.item_id.toUpperCase() === enteredCode.toUpperCase());
                                 if (virtualItem) {
                                     itemDescription = virtualItem.shortdescription || '';
                                     expectedQty = virtualItem.qty || 0;
