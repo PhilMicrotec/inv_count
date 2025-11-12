@@ -270,7 +270,7 @@ frappe.ui.form.on('Inventory Count', {
                         e.preventDefault(); // Prevent default form submission or new line
                         python_request_in_progress(true);
 
-                        const enteredCode = currentScannedCode.trim().toUpperCase();
+                        const enteredCode = currentScannedCode.trim();
 
                         if (enteredCode) {
                             let foundExistingRow = false;
@@ -289,6 +289,9 @@ frappe.ui.form.on('Inventory Count', {
                             // 2. Update or add to physical items
                             if (frm.doc[physicalItemsTable] && frm.doc[physicalItemsTable].length > 0) {
                                 for (let row of frm.doc[physicalItemsTable]) {
+                                    if (row.code.toUpperCase() === enteredCode.toUpperCase()) {
+                                        enteredCode = row.code; // Use the exact casing from existing row
+                                    }
                                     if (row.code === enteredCode) {
                                         const newQty = (row.qty || 0) + 1;
                                         foundExistingRow = true;
