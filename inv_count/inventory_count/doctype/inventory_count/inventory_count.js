@@ -148,6 +148,7 @@ frappe.ui.form.on('Inventory Count', {
             }
         });
         frappe.realtime.on('inv_physical_items_refresh', (r) => {
+            if (r.parent !== frm.doc.name) return; // Ignore if not for this document
             console.log("Refresh request for inv_physical_items received via realtime." + r.items);
             frm.set_value('inv_physical_items', r.items); // Set new data
             frm.refresh_field('inv_physical_items'); // Refresh again with new data
