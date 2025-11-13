@@ -148,6 +148,7 @@ frappe.ui.form.on('Inventory Count', {
             }
         });
         frappe.realtime.on('inv_physical_items_refresh', (r) => {
+            if (r.parent !== frm.doc.name) return; // Ignore if not for this document
             console.log("Refresh request for inv_physical_items received via realtime." + r.items);
             frm.set_value('inv_physical_items', r.items); // Set new data
             frm.refresh_field('inv_physical_items'); // Refresh again with new data
@@ -270,7 +271,7 @@ frappe.ui.form.on('Inventory Count', {
                         e.preventDefault(); // Prevent default form submission or new line
                         python_request_in_progress(true);
 
-                        const enteredCode = currentScannedCode.trim();
+                        let enteredCode = currentScannedCode.trim();
 
                         if (enteredCode) {
                             let foundExistingRow = false;
@@ -279,7 +280,7 @@ frappe.ui.form.on('Inventory Count', {
 
                             // 1. Find description and QOH in virtual items first
                             if (frm.doc[virtualItemsTable] && frm.doc[virtualItemsTable].length > 0) {
-                                const virtualItem = frm.doc[virtualItemsTable].find(row => row.item_id === enteredCode);
+                                const virtualItem = frm.doc[virtualItemsTable].find(row => row.item_id.toUpperCase() === enteredCode.toUpperCase());
                                 if (virtualItem) {
                                     itemDescription = virtualItem.shortdescription || '';
                                     expectedQty = virtualItem.qty || 0;
@@ -289,7 +290,8 @@ frappe.ui.form.on('Inventory Count', {
                             // 2. Update or add to physical items
                             if (frm.doc[physicalItemsTable] && frm.doc[physicalItemsTable].length > 0) {
                                 for (let row of frm.doc[physicalItemsTable]) {
-                                    if (row.code === enteredCode) {
+                                    if (row.code.toUpperCase() === enteredCode.toUpperCase()) {
+                                        enteredCode = row.code; // Use the exact casing from existing row
                                         const newQty = (row.qty || 0) + 1;
                                         foundExistingRow = true;
 
@@ -333,6 +335,7 @@ frappe.ui.form.on('Inventory Count', {
 
                             if (!foundExistingRow) {
                                 // Optimistically update UI
+                                enteredCode=enteredCode.toUpperCase();
                                 const newRow = frm.add_child(physicalItemsTable);
                                 newRow.code = enteredCode;
                                 newRow.qty = 1;
@@ -404,6 +407,10 @@ frappe.ui.form.on('Inventory Count', {
         frm.refresh_field('warehouse_bin'); // Refresh the dropdown to show new options
     },
 
+    category: function(frm) {
+            frm.save();
+    },
+
     // --- Before Submit Logic ---
     // This logic ensures necessary checks are performed before the document is submitted.
     // It now uses a Promise to handle the asynchronous comparison check,
@@ -462,6 +469,13 @@ function checkAllDifferencesConfirmed(frm, resolve, reject) {
     const invDifferenceTable = frm.doc.inv_difference;
     let allConfirmed = true;
 
+    if (invDifferenceTable.length === 0) {
+        allConfirmed = false; // No differences to confirm
+        python_request_in_progress(false);
+        resolve();
+        return;
+    }
+    
     // Iterate through the inventory difference table to check if all relevant rows are confirmed.
     for (let i = 0; i < invDifferenceTable.length; i++) {
         const row = invDifferenceTable[i];
@@ -530,7 +544,6 @@ function checkAllDifferencesConfirmed(frm, resolve, reject) {
 
     if (!allConfirmed || !frm.doc.adjustment_type || !frm.doc.reason || has_validation_errors) {
         // Ensure the inventory difference section is visible to the user.
-        frm.set_df_property('inventory_difference_section', 'hidden', false);
         frappe.show_alert({
                 message: __("Veuillez Choisir un type d'ajustement et confirmer les différences d'inventaire."),
                 indicator: 'blue'
@@ -580,9 +593,9 @@ function checkAllDifferencesConfirmed(frm, resolve, reject) {
                             message: r.message.message,
                             indicator: 'green'
                         }, 15);
-                        
-                            resolve(); // Resolve the Promise to allow submission
-                            if (debug_mode) console.log("Push to ConnectWise successful, form reloaded.");
+                        python_request_in_progress(false);
+                        if (debug_mode) console.log("Push to ConnectWise successful, form reloaded.");
+                        resolve(); // Resolve the Promise to allow submission
                                                     
                     } else if (r.message.status === "partial_success") 
                     {
@@ -595,23 +608,24 @@ function checkAllDifferencesConfirmed(frm, resolve, reject) {
                             frm.set_value('inv_difference', r.message.items);
                             frm.refresh_field('inv_difference');
                         }
-                        reject(); // Resolve the Promise to allow submission even if some items failed
+                        python_request_in_progress(false);
                         if (debug_mode) console.log("Push to ConnectWise partially successful, form reloaded.");
-
+                        reject(); // Resolve the Promise to allow submission even if some items failed
                     } else {
                         frappe.show_alert({
                             message: r.message.message || __('An unexpected response was received from the server.'),
                             title: __('Error'),
                             indicator: 'red'
                         }, 15);
-                        reject();
                         python_request_in_progress(false); // Re-enable auto-update even if the API call fails
+                        if (debug_mode) console.log("Push to ConnectWise Failed.");
+                        reject();
                     }
                 }).catch(err => {
                     console.error("API Call Error:", err);
                     frappe.msgprint(__('An error occurred during the ConnectWise push API call. Check browser console and Frappe logs for details.'), __('Network Error'), 'red');
-                    reject();
                     python_request_in_progress(false); // Re-enable auto-update even if the API call fails
+                    reject();
                 });
             
     }
