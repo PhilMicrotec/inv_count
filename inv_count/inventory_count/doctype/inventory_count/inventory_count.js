@@ -19,11 +19,6 @@ frappe.ui.form.on('Inventory Count', {
                 console.error("Error fetching debug_mode setting:", error);
             });
             if (debug_mode) console.log("Debug Mode is active");
-
-            if (frm.doc.docstatus === 1) {
-                // Afficher la section si le document est Soumis (Submitted)
-                cur_frm.set_df_property('inventory_difference_section', 'hidden', false);
-            }
             
             if (frm.doc.__islocal) {
                 frappe.call({
@@ -549,7 +544,6 @@ function checkAllDifferencesConfirmed(frm, resolve, reject) {
 
     if (!allConfirmed || !frm.doc.adjustment_type || !frm.doc.reason || has_validation_errors) {
         // Ensure the inventory difference section is visible to the user.
-        frm.set_df_property('inventory_difference_section', 'hidden', false);
         frappe.show_alert({
                 message: __("Veuillez Choisir un type d'ajustement et confirmer les différences d'inventaire."),
                 indicator: 'blue'
