@@ -19,6 +19,11 @@ frappe.ui.form.on('Inventory Count', {
                 console.error("Error fetching debug_mode setting:", error);
             });
             if (debug_mode) console.log("Debug Mode is active");
+
+            if (frm.doc.docstatus === 1) {
+                // Afficher la section si le document est Soumis (Submitted)
+                frm.toggle_display('inventory_difference_section', true);
+            }
             
             if (frm.doc.__islocal) {
                 frappe.call({
