@@ -22,7 +22,7 @@ frappe.ui.form.on('Inventory Count', {
 
             if (frm.doc.docstatus === 1) {
                 // Afficher la section si le document est Soumis (Submitted)
-                frm.toggle_display('inventory_difference_section', true);
+                cur_frm.set_df_property('inventory_difference_section', 'hidden', false);
             }
             
             if (frm.doc.__islocal) {
