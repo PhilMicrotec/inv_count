@@ -522,7 +522,7 @@ def get_connectwise_warehouses_and_bins():
                 #  Making a separate call for bins for each warehouse 
                 if warehouse_id:
                     # Construct the URL for a specific bin
-                    bins_endpoint = f"{warehouse_bins_base_endpoint}?conditions=warehouse/id={warehouse_id}" 
+                    bins_endpoint = f"{warehouse_bins_base_endpoint}?pagesize=1000&conditions=warehouse/id={warehouse_id} AND inactiveFlag=false" 
                     
                     #frappe.log_error(f"ConnectWise: Fetching bins for '{warehouse_name}' from: {bins_endpoint}", "ConnectWise Debug")
                     bins_response = requests.get(bins_endpoint, headers=headers, timeout=15)
