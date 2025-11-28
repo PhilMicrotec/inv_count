@@ -708,6 +708,7 @@ def push_confirmed_differences_to_connectwise(doc_name):
                     adjustment_detail['quantityAdjusted'] = difference_qty
                     adjustment_details_list.append(adjustment_detail)
 
+
             except requests.exceptions.Timeout:
                 error_detail = f"Request to ConnectWise timed out for item '{item.item_code}' during product lookup."
                 failed_pushes.append(f"'{item.item_code}': {error_detail}")
@@ -730,12 +731,16 @@ def push_confirmed_differences_to_connectwise(doc_name):
             return {"status": "success", "message": _("No valid items to push after filtering and lookup.")}
 
         # --- Prepare the main adjustment payload with all details ---
+        # Escape special characters in cw_adjustment_type_name_for_item for JSON safety
+        escaped_adjustment_type = cw_adjustment_type_name_for_item.replace("\\", "\\\\").replace("'", "\\'").replace('"', '\"') if cw_adjustment_type_name_for_item else ""
+        escaped_reason = reason.replace("\\", "\\\\").replace('"', '\\"') if reason else ""
+        
         main_adjustment_payload = {
             'identifier': doc_name, # Using doc_name as identifier for the main adjustment
             'type': {
-                'identifier': cw_adjustment_type_name_for_item,
+                'identifier': escaped_adjustment_type,
             },
-            'reason': reason, # Reason for the overall adjustment
+            'reason': escaped_reason, # Reason for the overall adjustment
         }
 
         pushed_count = 0
