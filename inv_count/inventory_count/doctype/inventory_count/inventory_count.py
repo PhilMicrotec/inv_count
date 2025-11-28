@@ -732,15 +732,13 @@ def push_confirmed_differences_to_connectwise(doc_name):
 
         # --- Prepare the main adjustment payload with all details ---
         # Escape special characters in cw_adjustment_type_name_for_item for JSON safety
-        escaped_adjustment_type = cw_adjustment_type_name_for_item.replace("\\", "\\\\").replace("'", "\\'").replace('"', '\"') if cw_adjustment_type_name_for_item else ""
-        escaped_reason = reason.replace("\\", "\\\\").replace('"', '\\"') if reason else ""
         
         main_adjustment_payload = {
             'identifier': doc_name, # Using doc_name as identifier for the main adjustment
             'type': {
-                'identifier': escaped_adjustment_type,
+                'identifier': cw_adjustment_type_name_for_item,
             },
-            'reason': escaped_reason, # Reason for the overall adjustment
+            'reason': reason, # Reason for the overall adjustment
         }
 
         pushed_count = 0
@@ -750,7 +748,7 @@ def push_confirmed_differences_to_connectwise(doc_name):
 
         try:
             # Step 1: Create the main inventory adjustment (uncommented this part)
-            response = requests.post(adjustments_api_endpoint, headers=headers, data=json.dumps(main_adjustment_payload), timeout=60)
+            response = requests.post(adjustments_api_endpoint, headers=headers, data=json.dumps(main_adjustment_payload, ensure_ascii=False).encode('utf-8'), timeout=60)
             response.raise_for_status() # Raise an exception for bad status codes
 
             parentId = response.json().get('id') # Get the ID of the created adjustment
@@ -765,7 +763,7 @@ def push_confirmed_differences_to_connectwise(doc_name):
 
                 try:
                     response_details = None
-                    details_response = requests.post(adjustments_details_api_endpoint, headers=headers, data=json.dumps(detail), timeout=60)
+                    details_response = requests.post(adjustments_details_api_endpoint, headers=headers, data=json.dumps(detail, ensure_ascii=False).encode('utf-8'), timeout=60)
                     try:
                         # Tente de convertir la réponse en JSON
                         response_details = details_response.json()
