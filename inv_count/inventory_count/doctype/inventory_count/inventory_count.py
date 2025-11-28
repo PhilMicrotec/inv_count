@@ -920,11 +920,11 @@ def get_connectwise_type_adjustments():
             frappe.throw("ConnectWise API returned unexpected format for type adjustments. Expected a list.", title="API Format Error")
             return [] # Return empty list on unexpected format
 
-        # Extract 'name' from each adjustment type dictionary
+        # Extract 'identifier' from each adjustment type dictionary
         type_adjustment_options = [
-            adjustment.get("name")
+            adjustment.get("identifier")
             for adjustment in connectwise_type_adjustments_data
-            if isinstance(adjustment, dict) and adjustment.get("name") # Ensure it's a dict and has a 'name'
+            if isinstance(adjustment, dict) and adjustment.get("identifier") # Ensure it's a dict and has a 'identifier'
         ]
 
         # Return a sorted list of unique type adjustment names
