@@ -147,8 +147,7 @@
   {
    "fieldname": "form_name",
    "fieldtype": "Data",
-   "label": "Form Name (Date automatically added)",
-   "set_only_once": 1
+   "label": "Form Name (Date automatically added)"
   },
   {
    "fieldname": "inv_difference_sn",
