@@ -1059,7 +1059,7 @@ def on_update(doc, method):
     Automatically renames the document if 'form_name' changes.
     Only applies to existing documents (not new ones).
     Follows the autoname convention: form_name (DD-MM-YYYY)
-    Uses frappe's internal rename mechanism to ensure all links are updated.
+    Uses frappe.call to trigger the same rename mechanism that updates URLs and all references.
     """
     # Only for existing documents
     if not doc.is_new() and doc.form_name:
@@ -1086,21 +1086,19 @@ def on_update(doc, method):
                     title=_("Duplicate Name")
                 )
             
-            # Use frappe.rename_doc with force=True to ensure all links and references are updated
-            # This uses the same mechanism as Frappe's UI rename function
+            # Call the frappe.rename_doc using the standard method
+            # This updates everything: URLs, child tables, linked docs, permissions, etc.
             try:
-                frappe.rename_doc(
-                    doctype="Inventory Count",
-                    old=doc.name,
-                    new=new_doc_name,
-                    force=True  # Force rename and update all references
+                # Use the standard rename_doc which handles all Frappe's internal updates
+                frappe.call(
+                    method="frappe.client.rename_doc",
+                    args={
+                        "doctype": "Inventory Count",
+                        "name": doc.name,
+                        "new_name": new_doc_name,
+                        "merge": False
+                    },
+                    async_=False  # Wait for completion
                 )
-                
-                frappe.msgprint(
-                    _("Document renamed to '{0}'").format(new_doc_name),
-                    alert=True
-                )
-            except frappe.exceptions.NameError as e:
-                frappe.throw(_("Error renaming document: {0}").format(str(e)))
             except Exception as e:
-                frappe.throw(_("Unexpected error during rename: {0}").format(str(e)))
+                frappe.throw(_("Error renaming document: {0}").format(str(e)))
