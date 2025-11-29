@@ -708,6 +708,7 @@ def push_confirmed_differences_to_connectwise(doc_name):
                     adjustment_detail['quantityAdjusted'] = difference_qty
                     adjustment_details_list.append(adjustment_detail)
 
+
             except requests.exceptions.Timeout:
                 error_detail = f"Request to ConnectWise timed out for item '{item.item_code}' during product lookup."
                 failed_pushes.append(f"'{item.item_code}': {error_detail}")
@@ -730,6 +731,8 @@ def push_confirmed_differences_to_connectwise(doc_name):
             return {"status": "success", "message": _("No valid items to push after filtering and lookup.")}
 
         # --- Prepare the main adjustment payload with all details ---
+        # Escape special characters in cw_adjustment_type_name_for_item for JSON safety
+        
         main_adjustment_payload = {
             'identifier': doc_name, # Using doc_name as identifier for the main adjustment
             'type': {
@@ -741,10 +744,11 @@ def push_confirmed_differences_to_connectwise(doc_name):
         pushed_count = 0
         failed_detail_pushes = [] # To track individual detail push failures
         parentId = None
+        detail = None  # Initialize to prevent UnboundLocalError in except blocks
 
         try:
             # Step 1: Create the main inventory adjustment (uncommented this part)
-            response = requests.post(adjustments_api_endpoint, headers=headers, data=json.dumps(main_adjustment_payload), timeout=60)
+            response = requests.post(adjustments_api_endpoint, headers=headers, data=json.dumps(main_adjustment_payload, ensure_ascii=False).encode('utf-8'), timeout=60)
             response.raise_for_status() # Raise an exception for bad status codes
 
             parentId = response.json().get('id') # Get the ID of the created adjustment
@@ -759,7 +763,7 @@ def push_confirmed_differences_to_connectwise(doc_name):
 
                 try:
                     response_details = None
-                    details_response = requests.post(adjustments_details_api_endpoint, headers=headers, data=json.dumps(detail), timeout=60)
+                    details_response = requests.post(adjustments_details_api_endpoint, headers=headers, data=json.dumps(detail, ensure_ascii=False).encode('utf-8'), timeout=60)
                     try:
                         # Tente de convertir la réponse en JSON
                         response_details = details_response.json()
@@ -833,7 +837,7 @@ def push_confirmed_differences_to_connectwise(doc_name):
            
             failed_pushes.append(f"Consolidated Push: {error_detail}")
             print(error_detail) # Print to console for immediate visibility during dev
-            return {"status": "error", "message": error_detail, "debug": json.dumps(detail)}
+            return {"status": "error", "message": error_detail, "debug": json.dumps(detail) if detail else "No detail available"}
         except requests.exceptions.RequestException as req_err:
             error_detail = f"Failed to push consolidated adjustment: {req_err}"
             if hasattr(req_err, 'response') and req_err.response is not None:
@@ -845,12 +849,12 @@ def push_confirmed_differences_to_connectwise(doc_name):
                     error_detail += f" - CW Raw Response: {req_err.response.text}"
             failed_pushes.append(f"Consolidated Push: {error_detail}")
             print(error_detail) # Print to console for immediate visibility during dev
-            return {"status": "error", "message": error_detail, "debug": json.dumps(detail)}
+            return {"status": "error", "message": error_detail, "debug": json.dumps(detail) if detail else "No detail available"}
         except Exception as push_err:
             error_detail = f"An unexpected error occurred during consolidated push: {push_err}"
             failed_pushes.append(f"Consolidated Push: {error_detail}")
             print(error_detail) # Print to console for immediate visibility during dev
-            return {"status": "error", "message": error_detail, "debug": json.dumps(detail)}  
+            return {"status": "error", "message": error_detail, "debug": json.dumps(detail) if detail else "No detail available"}  
     
     except frappe.exceptions.ValidationError:
         frappe.db.rollback() 
@@ -916,11 +920,11 @@ def get_connectwise_type_adjustments():
             frappe.throw("ConnectWise API returned unexpected format for type adjustments. Expected a list.", title="API Format Error")
             return [] # Return empty list on unexpected format
 
-        # Extract 'name' from each adjustment type dictionary
+        # Extract 'identifier' from each adjustment type dictionary
         type_adjustment_options = [
-            adjustment.get("name")
+            adjustment.get("identifier")
             for adjustment in connectwise_type_adjustments_data
-            if isinstance(adjustment, dict) and adjustment.get("name") # Ensure it's a dict and has a 'name'
+            if isinstance(adjustment, dict) and adjustment.get("identifier") # Ensure it's a dict and has a 'identifier'
         ]
 
         # Return a sorted list of unique type adjustment names

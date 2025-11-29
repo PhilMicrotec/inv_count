@@ -136,8 +136,7 @@
   {
    "fieldname": "adjustment_type",
    "fieldtype": "Select",
-   "label": "Adjustment Type",
-   "read_only": 1
+   "label": "Adjustment Type"
   },
   {
    "fieldname": "reason",
