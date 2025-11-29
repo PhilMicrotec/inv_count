@@ -1059,7 +1059,7 @@ def on_update(doc, method):
     Automatically renames the document if 'form_name' changes.
     Only applies to existing documents (not new ones).
     Follows the autoname convention: form_name (DD-MM-YYYY)
-    Uses frappe.call to trigger the same rename mechanism that updates URLs and all references.
+    Uses frappe's rename_doc which updates URLs, child tables, and all references.
     """
     # Only for existing documents
     if not doc.is_new() and doc.form_name:
@@ -1086,19 +1086,15 @@ def on_update(doc, method):
                     title=_("Duplicate Name")
                 )
             
-            # Call the frappe.rename_doc using the standard method
-            # This updates everything: URLs, child tables, linked docs, permissions, etc.
+            # Use frappe.rename_doc which handles all updates including URLs, child tables, and references
             try:
-                # Use the standard rename_doc which handles all Frappe's internal updates
-                frappe.call(
-                    method="frappe.client.rename_doc",
-                    args={
-                        "doctype": "Inventory Count",
-                        "name": doc.name,
-                        "new_name": new_doc_name,
-                        "merge": False
-                    },
-                    async_=False  # Wait for completion
+                frappe.rename_doc(
+                    doctype="Inventory Count",
+                    old=doc.name,
+                    new=new_doc_name,
+                    merge=False,
+                    ignore_if_exists=False,
+                    force=True
                 )
             except Exception as e:
                 frappe.throw(_("Error renaming document: {0}").format(str(e)))
