@@ -134,7 +134,7 @@ app_license = "mit"
 
 doc_events = {
 	"Inventory Count": {
-		"on_update": "inv_count.inventory_count.doctype.inventory_count.inventory_count.on_update"
+		"before_save": "inv_count.inventory_count.doctype.inventory_count.inventory_count.before_save"
 	}
 }
 

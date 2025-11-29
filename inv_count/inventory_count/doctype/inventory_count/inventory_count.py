@@ -1053,39 +1053,49 @@ def upsert_physical_item(parent_name, code, qty=1, description='', expected_qty=
         frappe.log_error(traceback.format_exc(), "upsert_physical_item")
         raise
 
-def on_update(doc, method):
+def before_save(doc, method):
     """
-    Hook called when an Inventory Count document is updated.
-    Renames the document if the 'form_name' field has been changed.
-    Only executes this logic if the document is not new (already saved).
+    Hook called before an Inventory Count document is saved.
+    Automatically renames the document if 'form_name' changes.
+    Only applies to existing documents (not new ones).
+    Follows the autoname convention: form_name (DD-MM-YYYY)
     """
-    # Only execute logic if the document is not new and the 'form_name' field has changed
-    if not doc.is_new() and doc.has_changed('form_name'):
+    # Only for existing documents
+    if not doc.is_new() and doc.form_name:
+        # Get the form_name and current date
+        form_name = doc.form_name.strip()
+        current_date = frappe.utils.today()
         
-        # 1. Get the new name (value from the form_name field)
-        new_name = doc.form_name
-        
-        # 2. Get the current name (before saving)
-        # This is obtained from the 'name' field before any changes
-        current_name = doc.name
-
-        # 3. Rename the document
+        # Format: form_name (DD-MM-YYYY)
+        # Parse the date to format it as DD-MM-YYYY
         try:
-            # The frappe.rename_doc function is the standard Frappe way
-            # to change the 'name' field and update all related links
-            frappe.rename_doc(
-                doctype=doc.doctype,
-                old=current_name,
-                new=new_name,
-                # Optional: Set ignore_if_exists=True if you don't want
-                # an error to be thrown if the new name already exists
-                ignore_if_exists=False
-            )
-
-        except frappe.exceptions.NameError:
-            # This is thrown if the new name already exists
-            frappe.throw(_("The name '{0}' already exists. Cannot rename the document.").format(new_name))
+            date_obj = frappe.utils.get_datetime(current_date)
+            formatted_date = date_obj.strftime("%d-%m-%Y")
+            new_doc_name = f"{form_name} ({formatted_date})"
+        except Exception:
+            # Fallback if date formatting fails
+            new_doc_name = f"{form_name} ({current_date})"
         
-        except Exception as e:
-            # Catch any other errors that occur during renaming
-            frappe.throw(_("Error renaming the document: {0}").format(e))
+        # Only rename if the new name is different from current name
+        if doc.name != new_doc_name:
+            # Check if the new name already exists
+            if frappe.db.exists("Inventory Count", new_doc_name):
+                frappe.throw(
+                    _("The name '{0}' already exists. Please use a different form name.").format(new_doc_name),
+                    title=_("Duplicate Name")
+                )
+            # Rename the document
+            try:
+                frappe.rename_doc(
+                    doctype="Inventory Count",
+                    old=doc.name,
+                    new=new_doc_name,
+                    ignore_if_exists=False,
+                    merge=False
+                )
+                # Update the doc.name to reflect the rename
+                doc.name = new_doc_name
+            except frappe.exceptions.NameError as e:
+                frappe.throw(_("Error renaming document: {0}").format(str(e)))
+            except Exception as e:
+                frappe.throw(_("Unexpected error during rename: {0}").format(str(e)))
