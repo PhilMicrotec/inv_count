@@ -1096,27 +1096,6 @@ def on_update(doc, method):
                     ignore_if_exists=False,
                     force=True
                 )
-                # Refresh the in-memory document to the new name and instruct the client to redirect
-                try:
-                    # Ensure the in-memory doc references the new name before reload
-                    doc.name = new_doc_name
-                    doc.reload()
-
-                    try:
-                        new_url = doc.get_url()
-                        # If we are in a normal HTTP request saving the doc, this tells Frappe to redirect the browser
-                        frappe.local.response['type'] = 'redirect'
-                        frappe.local.response['location'] = new_url
-                    except Exception:
-                        # If getting URL or setting response fails, log but don't block
-                        frappe.log_error(traceback.format_exc(), _("Failed to set redirect after Inventory Count rename"))
-                except Exception:
-                    # Fallback: try to fetch the renamed document and redirect using its URL
-                    try:
-                        renamed = frappe.get_doc("Inventory Count", new_doc_name)
-                        frappe.local.response['type'] = 'redirect'
-                        frappe.local.response['location'] = renamed.get_url()
-                    except Exception:
-                        frappe.log_error(traceback.format_exc(), _("Failed to reload Inventory Count after rename"))
+                #TODO: Redirect to new document url
             except Exception as e:
                 frappe.throw(_("Error renaming document: {0}").format(str(e)))
