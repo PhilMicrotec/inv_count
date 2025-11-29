@@ -1053,12 +1053,13 @@ def upsert_physical_item(parent_name, code, qty=1, description='', expected_qty=
         frappe.log_error(traceback.format_exc(), "upsert_physical_item")
         raise
 
-def before_save(doc, method):
+def on_update(doc, method):
     """
-    Hook called before an Inventory Count document is saved.
+    Hook called after an Inventory Count document is saved.
     Automatically renames the document if 'form_name' changes.
     Only applies to existing documents (not new ones).
     Follows the autoname convention: form_name (DD-MM-YYYY)
+    Uses frappe's internal rename mechanism to ensure all links are updated.
     """
     # Only for existing documents
     if not doc.is_new() and doc.form_name:
@@ -1084,17 +1085,21 @@ def before_save(doc, method):
                     _("The name '{0}' already exists. Please use a different form name.").format(new_doc_name),
                     title=_("Duplicate Name")
                 )
-            # Rename the document
+            
+            # Use frappe.rename_doc with force=True to ensure all links and references are updated
+            # This uses the same mechanism as Frappe's UI rename function
             try:
                 frappe.rename_doc(
                     doctype="Inventory Count",
                     old=doc.name,
                     new=new_doc_name,
-                    ignore_if_exists=False,
-                    merge=False
+                    force=True  # Force rename and update all references
                 )
-                # Update the doc.name to reflect the rename
-                doc.name = new_doc_name
+                
+                frappe.msgprint(
+                    _("Document renamed to '{0}'").format(new_doc_name),
+                    alert=True
+                )
             except frappe.exceptions.NameError as e:
                 frappe.throw(_("Error renaming document: {0}").format(str(e)))
             except Exception as e:
