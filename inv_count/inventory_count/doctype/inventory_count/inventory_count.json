@@ -136,7 +136,8 @@
   {
    "fieldname": "adjustment_type",
    "fieldtype": "Select",
-   "label": "Adjustment Type"
+   "label": "Adjustment Type",
+   "read_only": 1
   },
   {
    "fieldname": "reason",
@@ -147,7 +148,8 @@
   {
    "fieldname": "form_name",
    "fieldtype": "Data",
-   "label": "Form Name (Date automatically added)"
+   "label": "Form Name (Date automatically added)",
+   "set_only_once": 0
   },
   {
    "fieldname": "inv_difference_sn",

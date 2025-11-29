@@ -122,7 +122,7 @@ def import_data_with_pandas(inventory_count_name):
             try:
                 child_item.location = row.get('Location', '')
                 child_item.iv_item_recid = row.get('IV_Item_RecID', '')
-                child_item.item_id = row.get('Item_ID', '')
+                child_item.item_id = row.get('Item_ID', '').upper()
                 child_item.shortdescription = row.get('ShortDescription', '')
                 child_item.category = row.get('Category', '')
                 child_item.vendor_recid = row.get('Vendor_RecID', '')
@@ -197,9 +197,9 @@ def compare_child_tables(doc_name):
             for row in doc.get("inv_difference") if row.item_code
         }
 
-        # Map to store SNList for virtual items
+        # Map to store SNList for virtual items (normalize item_id to uppercase for consistent matching)
         virtual_item_snlist_map = {
-            row.get("item_id"): row.get("snlist")
+            row.get("item_id", "").upper(): row.get("snlist")
             for row in all_virtual_items if row.get("item_id")
         }
 
@@ -221,25 +221,25 @@ def compare_child_tables(doc_name):
             physical_items_to_compare = all_physical_items
             virtual_items_to_compare = all_virtual_items
 
-        # Build maps from the *filtered* or *all* lists
+        # Build maps from the *filtered* or *all* lists (normalize item_id to uppercase for consistent matching)
         physical_items_map = {
-            row.get("code"): int(row.get("qty") or 0)
+            row.get("code", "").upper(): int(row.get("qty") or 0)
             for row in physical_items_to_compare
         }
         virtual_items_map = {
-            row.get("item_id"): int(row.get("qty") or 0)
+            row.get("item_id", "").upper(): int(row.get("qty") or 0)
             for row in virtual_items_to_compare
         }
         description_virtual_item_map = {
-            row.get("item_id"): row.get("shortdescription")
+            row.get("item_id", "").upper(): row.get("shortdescription")
             for row in virtual_items_to_compare
         }
         description_physical_item_map = {
-            row.get("code"): row.get("description")
+            row.get("code", "").upper(): row.get("description")
             for row in physical_items_to_compare
         }
         virtual_item_Recid = {
-            row.get("item_id"): row.get("iv_item_recid")
+            row.get("item_id", "").upper(): row.get("iv_item_recid")
             for row in all_virtual_items if row.get("item_id")
         }
 
@@ -1052,3 +1052,40 @@ def upsert_physical_item(parent_name, code, qty=1, description='', expected_qty=
         frappe.db.rollback()
         frappe.log_error(traceback.format_exc(), "upsert_physical_item")
         raise
+
+def on_update(doc, method):
+    """
+    Hook called when an Inventory Count document is updated.
+    Renames the document if the 'form_name' field has been changed.
+    Only executes this logic if the document is not new (already saved).
+    """
+    # Only execute logic if the document is not new and the 'form_name' field has changed
+    if not doc.is_new() and doc.has_changed('form_name'):
+        
+        # 1. Get the new name (value from the form_name field)
+        new_name = doc.form_name
+        
+        # 2. Get the current name (before saving)
+        # This is obtained from the 'name' field before any changes
+        current_name = doc.name
+
+        # 3. Rename the document
+        try:
+            # The frappe.rename_doc function is the standard Frappe way
+            # to change the 'name' field and update all related links
+            frappe.rename_doc(
+                doctype=doc.doctype,
+                old=current_name,
+                new=new_name,
+                # Optional: Set ignore_if_exists=True if you don't want
+                # an error to be thrown if the new name already exists
+                ignore_if_exists=False
+            )
+
+        except frappe.exceptions.NameError:
+            # This is thrown if the new name already exists
+            frappe.throw(_("The name '{0}' already exists. Cannot rename the document.").format(new_name))
+        
+        except Exception as e:
+            # Catch any other errors that occur during renaming
+            frappe.throw(_("Error renaming the document: {0}").format(e))

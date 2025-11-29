@@ -132,13 +132,11 @@ app_license = "mit"
 # ---------------
 # Hook on document methods and events
 
-# doc_events = {
-# 	"*": {
-# 		"on_update": "method",
-# 		"on_cancel": "method",
-# 		"on_trash": "method"
-# 	}
-# }
+doc_events = {
+	"Inventory Count": {
+		"on_update": "inv_count.inventory_count.doctype.inventory_count.inventory_count.on_update"
+	}
+}
 
 # Scheduled Tasks
 # ---------------
