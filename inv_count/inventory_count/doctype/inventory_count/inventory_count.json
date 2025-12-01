@@ -1,5 +1,6 @@
 {
  "actions": [],
+ "allow_rename": 1,
  "autoname": "format:{form_name} ({DD}-{MM}-{YYYY})",
  "creation": "2025-05-29 10:26:51.682859",
  "doctype": "DocType",
@@ -149,7 +150,10 @@
    "fieldname": "form_name",
    "fieldtype": "Data",
    "label": "Form Name (Date automatically added)",
-   "set_only_once": 0
+   "length": 37,
+   "reqd": 1,
+   "set_only_once": 1,
+   "show_on_timeline": 1
   },
   {
    "fieldname": "inv_difference_sn",
@@ -182,7 +186,7 @@
  "index_web_pages_for_search": 1,
  "is_submittable": 1,
  "links": [],
- "modified": "2025-08-27 14:25:54.033110",
+ "modified": "2025-12-01 14:02:30.233808",
  "modified_by": "Administrator",
  "module": "Inventory Count",
  "name": "Inventory Count",
@@ -198,6 +202,7 @@
    "read": 1,
    "report": 1,
    "role": "System Manager",
+   "select": 1,
    "share": 1,
    "submit": 1,
    "write": 1
@@ -211,6 +216,7 @@
    "read": 1,
    "report": 1,
    "role": "All",
+   "select": 1,
    "share": 1,
    "submit": 1,
    "write": 1
