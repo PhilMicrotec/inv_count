@@ -122,7 +122,7 @@ def import_data_with_pandas(inventory_count_name):
             try:
                 child_item.location = row.get('Location', '')
                 child_item.iv_item_recid = row.get('IV_Item_RecID', '')
-                child_item.item_id = row.get('Item_ID', '')
+                child_item.item_id = row.get('Item_ID', '').upper()
                 child_item.shortdescription = row.get('ShortDescription', '')
                 child_item.category = row.get('Category', '')
                 child_item.vendor_recid = row.get('Vendor_RecID', '')
@@ -197,9 +197,9 @@ def compare_child_tables(doc_name):
             for row in doc.get("inv_difference") if row.item_code
         }
 
-        # Map to store SNList for virtual items
+        # Map to store SNList for virtual items (normalize item_id to uppercase for consistent matching)
         virtual_item_snlist_map = {
-            row.get("item_id"): row.get("snlist")
+            row.get("item_id", "").upper(): row.get("snlist")
             for row in all_virtual_items if row.get("item_id")
         }
 
@@ -221,25 +221,25 @@ def compare_child_tables(doc_name):
             physical_items_to_compare = all_physical_items
             virtual_items_to_compare = all_virtual_items
 
-        # Build maps from the *filtered* or *all* lists
+        # Build maps from the *filtered* or *all* lists (normalize item_id to uppercase for consistent matching)
         physical_items_map = {
-            row.get("code"): int(row.get("qty") or 0)
+            row.get("code", "").upper(): int(row.get("qty") or 0)
             for row in physical_items_to_compare
         }
         virtual_items_map = {
-            row.get("item_id"): int(row.get("qty") or 0)
+            row.get("item_id", "").upper(): int(row.get("qty") or 0)
             for row in virtual_items_to_compare
         }
         description_virtual_item_map = {
-            row.get("item_id"): row.get("shortdescription")
+            row.get("item_id", "").upper(): row.get("shortdescription")
             for row in virtual_items_to_compare
         }
         description_physical_item_map = {
-            row.get("code"): row.get("description")
+            row.get("code", "").upper(): row.get("description")
             for row in physical_items_to_compare
         }
         virtual_item_Recid = {
-            row.get("item_id"): row.get("iv_item_recid")
+            row.get("item_id", "").upper(): row.get("iv_item_recid")
             for row in all_virtual_items if row.get("item_id")
         }
 
