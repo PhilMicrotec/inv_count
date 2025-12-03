@@ -122,7 +122,7 @@ def import_data_with_pandas(inventory_count_name):
             try:
                 child_item.location = row.get('Location', '')
                 child_item.iv_item_recid = row.get('IV_Item_RecID', '')
-                child_item.item_id = row.get('Item_ID', '')
+                child_item.item_id = row.get('Item_ID', '').upper()
                 child_item.shortdescription = row.get('ShortDescription', '')
                 child_item.category = row.get('Category', '')
                 child_item.vendor_recid = row.get('Vendor_RecID', '')
@@ -193,9 +193,9 @@ def compare_child_tables(doc_name):
             for row in doc.get("inv_difference") if row.item_code
         }
 
-        # Map to store SNList for virtual items
+        # Map to store SNList for virtual items (normalize item_id to uppercase for consistent matching)
         virtual_item_snlist_map = {
-            row.get("item_id"): row.get("snlist")
+            row.get("item_id", "").upper(): row.get("snlist")
             for row in all_virtual_items if row.get("item_id")
         }
 
@@ -217,25 +217,25 @@ def compare_child_tables(doc_name):
             physical_items_to_compare = all_physical_items
             virtual_items_to_compare = all_virtual_items
 
-        # Build maps from the *filtered* or *all* lists
+        # Build maps from the *filtered* or *all* lists (normalize item_id to uppercase for consistent matching)
         physical_items_map = {
-            row.get("code"): int(row.get("qty") or 0)
+            row.get("code", "").upper(): int(row.get("qty") or 0)
             for row in physical_items_to_compare
         }
         virtual_items_map = {
-            row.get("item_id"): int(row.get("qty") or 0)
+            row.get("item_id", "").upper(): int(row.get("qty") or 0)
             for row in virtual_items_to_compare
         }
         description_virtual_item_map = {
-            row.get("item_id"): row.get("shortdescription")
+            row.get("item_id", "").upper(): row.get("shortdescription")
             for row in virtual_items_to_compare
         }
         description_physical_item_map = {
-            row.get("code"): row.get("description")
+            row.get("code", "").upper(): row.get("description")
             for row in physical_items_to_compare
         }
         virtual_item_Recid = {
-            row.get("item_id"): row.get("iv_item_recid")
+            row.get("item_id", "").upper(): row.get("iv_item_recid")
             for row in all_virtual_items if row.get("item_id")
         }
 
@@ -704,6 +704,7 @@ def push_confirmed_differences_to_connectwise(doc_name):
                     adjustment_detail['quantityAdjusted'] = difference_qty
                     adjustment_details_list.append(adjustment_detail)
 
+
             except requests.exceptions.Timeout:
                 error_detail = f"Request to ConnectWise timed out for item '{item.item_code}' during product lookup."
                 failed_pushes.append(f"'{item.item_code}': {error_detail}")
@@ -726,6 +727,8 @@ def push_confirmed_differences_to_connectwise(doc_name):
             return {"status": "success", "message": _("No valid items to push after filtering and lookup.")}
 
         # --- Prepare the main adjustment payload with all details ---
+        # Escape special characters in cw_adjustment_type_name_for_item for JSON safety
+        
         main_adjustment_payload = {
             'identifier': doc_name, # Using doc_name as identifier for the main adjustment
             'type': {
@@ -737,10 +740,11 @@ def push_confirmed_differences_to_connectwise(doc_name):
         pushed_count = 0
         failed_detail_pushes = [] # To track individual detail push failures
         parentId = None
+        detail = None  # Initialize to prevent UnboundLocalError in except blocks
 
         try:
             # Step 1: Create the main inventory adjustment (uncommented this part)
-            response = requests.post(adjustments_api_endpoint, headers=headers, data=json.dumps(main_adjustment_payload), timeout=60)
+            response = requests.post(adjustments_api_endpoint, headers=headers, data=json.dumps(main_adjustment_payload, ensure_ascii=False).encode('utf-8'), timeout=60)
             response.raise_for_status() # Raise an exception for bad status codes
 
             parentId = response.json().get('id') # Get the ID of the created adjustment
@@ -755,7 +759,7 @@ def push_confirmed_differences_to_connectwise(doc_name):
 
                 try:
                     response_details = None
-                    details_response = requests.post(adjustments_details_api_endpoint, headers=headers, data=json.dumps(detail), timeout=60)
+                    details_response = requests.post(adjustments_details_api_endpoint, headers=headers, data=json.dumps(detail, ensure_ascii=False).encode('utf-8'), timeout=60)
                     try:
                         # Tente de convertir la réponse en JSON
                         response_details = details_response.json()
@@ -829,7 +833,7 @@ def push_confirmed_differences_to_connectwise(doc_name):
            
             failed_pushes.append(f"Consolidated Push: {error_detail}")
             print(error_detail) # Print to console for immediate visibility during dev
-            return {"status": "error", "message": error_detail, "debug": json.dumps(detail)}
+            return {"status": "error", "message": error_detail, "debug": json.dumps(detail) if detail else "No detail available"}
         except requests.exceptions.RequestException as req_err:
             error_detail = f"Failed to push consolidated adjustment: {req_err}"
             if hasattr(req_err, 'response') and req_err.response is not None:
@@ -841,12 +845,12 @@ def push_confirmed_differences_to_connectwise(doc_name):
                     error_detail += f" - CW Raw Response: {req_err.response.text}"
             failed_pushes.append(f"Consolidated Push: {error_detail}")
             print(error_detail) # Print to console for immediate visibility during dev
-            return {"status": "error", "message": error_detail, "debug": json.dumps(detail)}
+            return {"status": "error", "message": error_detail, "debug": json.dumps(detail) if detail else "No detail available"}
         except Exception as push_err:
             error_detail = f"An unexpected error occurred during consolidated push: {push_err}"
             failed_pushes.append(f"Consolidated Push: {error_detail}")
             print(error_detail) # Print to console for immediate visibility during dev
-            return {"status": "error", "message": error_detail, "debug": json.dumps(detail)}  
+            return {"status": "error", "message": error_detail, "debug": json.dumps(detail) if detail else "No detail available"}  
     
     except frappe.exceptions.ValidationError:
         frappe.db.rollback() 
@@ -912,11 +916,11 @@ def get_connectwise_type_adjustments():
             frappe.throw("ConnectWise API returned unexpected format for type adjustments. Expected a list.", title="API Format Error")
             return [] # Return empty list on unexpected format
 
-        # Extract 'name' from each adjustment type dictionary
+        # Extract 'identifier' from each adjustment type dictionary
         type_adjustment_options = [
-            adjustment.get("name")
+            adjustment.get("identifier")
             for adjustment in connectwise_type_adjustments_data
-            if isinstance(adjustment, dict) and adjustment.get("name") # Ensure it's a dict and has a 'name'
+            if isinstance(adjustment, dict) and adjustment.get("identifier") # Ensure it's a dict and has a 'identifier'
         ]
 
         # Return a sorted list of unique type adjustment names
