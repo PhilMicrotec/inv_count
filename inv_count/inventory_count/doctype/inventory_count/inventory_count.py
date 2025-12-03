@@ -131,7 +131,8 @@ def import_data_with_pandas(inventory_count_name):
                 child_item.warehouse = row.get('Warehouse', '')
                 child_item.warehouse_bin_recid = row.get('Warehouse_Bin_RecID', '')
                 child_item.bin = row.get('Bin', '')
-                child_item.qoh = row.get('QOH', 0)
+                child_item.qoh = row.get('QOH', 0) 
+                child_item.qty = row.get('QOH', 0) 
                 if 'PickedNotShipped' in qoh_calculation_type:
                     child_item.qty += row.get('PickedNotShipped', 0)
                 if 'PickedNotInvoiced' in qoh_calculation_type:
