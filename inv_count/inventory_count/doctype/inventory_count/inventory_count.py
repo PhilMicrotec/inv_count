@@ -132,14 +132,10 @@ def import_data_with_pandas(inventory_count_name):
                 child_item.warehouse_bin_recid = row.get('Warehouse_Bin_RecID', '')
                 child_item.bin = row.get('Bin', '')
                 child_item.qoh = row.get('QOH', 0)
-                if qoh_calculation_type == 'QOH':
-                    child_item.qty = row.get('QOH', 0)
-                elif qoh_calculation_type == 'QOH+PickedNotShipped': 
-                    child_item.qty = row.get('QOH', 0) + row.get('PickedNotShipped', 0) 
-                elif qoh_calculation_type == 'QOH+PickedNotInvoiced': 
-                    child_item.qty = row.get('QOH', 0) + row.get('PickedNotInvoiced', 0)
-                elif qoh_calculation_type == 'QOH+PickedNotShipped+PickedNotInvoiced': 
-                    child_item.qty = row.get('QOH', 0) + row.get('PickedNotShipped', 0) + row.get('PickedNotInvoiced', 0)
+                if 'PickedNotShipped' in qoh_calculation_type:
+                    child_item.qty += row.get('PickedNotShipped', 0)
+                if 'PickedNotInvoiced' in qoh_calculation_type:
+                    child_item.qty += row.get('PickedNotInvoiced', 0)
                 child_item.lasttransactiondate = row.get('LastTransactionDate', None)
                 child_item.iv_audit_recid = row.get('IV_Audit_RecID', '')
                 child_item.pickednotshipped = row.get('PickedNotShipped', 0)
