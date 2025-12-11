@@ -14,6 +14,7 @@
   "warehouse_bin",
   "date",
   "category",
+  "subcategory",
   "section_break_slsq",
   "code",
   "scanned_items",
@@ -112,6 +113,13 @@
    "fieldname": "category",
    "fieldtype": "Select",
    "label": "Category",
+   "read_only": 1
+  },
+  {
+   "depends_on": "eval:!(doc.__islocal)",
+   "fieldname": "subcategory",
+   "fieldtype": "Select",
+   "label": "Sub Category",
    "read_only": 1
   },
   {

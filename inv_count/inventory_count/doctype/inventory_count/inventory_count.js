@@ -94,6 +94,7 @@ frappe.ui.form.on('Inventory Count', {
                             frm.reload_doc().then(() => {
                                 // Then, populate the categories using the fresh data
                                 populateMainCategoryDropdown(frm);
+                                populateSubCategoryDropdown(frm);
                                 python_request_in_progress(false); // Re-enable auto-update after import
                             });
                         
@@ -410,6 +411,9 @@ frappe.ui.form.on('Inventory Count', {
     category: function(frm) {
             frm.save();
     },
+    subcategory: function(frm) {
+            frm.save();
+    },
 
     // --- Before Submit Logic ---
     // This logic ensures necessary checks are performed before the document is submitted.
@@ -689,6 +693,42 @@ function populateMainCategoryDropdown(frm) {
     frm.refresh_field('category'); // Refresh the dropdown to show new options
     console.log("Main Category dropdown populated with final options:", category_options);
     console.log("--- populateMainCategoryDropdown finished ---");
+}
+
+function populateSubCategoryDropdown(frm) {
+    console.log("--- populateSubCategoryDropdown called ---");
+    const categories = new Set(); // Use a Set to store unique categories
+
+    // 1. Check if inv_virtual_items exists and has items
+    if (frm.doc.inv_virtual_items && frm.doc.inv_virtual_items.length > 0) {
+        console.log("Virtual items found. Number of items:", frm.doc.inv_virtual_items.length);
+        
+        frm.doc.inv_virtual_items.forEach((item, index) => {
+            // Ensure the category exists and is a string before adding
+            if (item.subcatname && typeof item.subcatname === 'string') {
+                categories.add(item.subcatname);
+            } else {
+                console.warn(`Skipped item ${index} due to invalid or empty category. Value:`, item.subcatname);
+            }
+        });
+        console.log("Categories collected (before sorting):", Array.from(categories));
+
+    } else {
+        console.warn("No virtual items found or frm.doc.inv_virtual_items is empty.");
+        console.warn("Current frm.doc.inv_virtual_items:", frm.doc.inv_virtual_items);
+    }
+
+    let category_options = [""]; // Start with an empty option to allow no selection
+    // Convert Set to Array, sort alphabetically, and concatenate with the empty option
+    const sortedCategories = Array.from(categories).sort();
+    category_options = category_options.concat(sortedCategories);
+    
+    // Set the options for the main 'category' field
+    frm.set_df_property('subcategory', 'options', category_options);
+    frm.set_df_property('subcategory', 'read_only', 0); // Make it editable
+    frm.refresh_field('subcategory'); // Refresh the dropdown to show new options
+    console.log("Subcategory dropdown populated with final options:", category_options);
+    console.log("--- populateSubCategoryDropdown finished ---");
 }
 
 function python_request_in_progress(bool) {
