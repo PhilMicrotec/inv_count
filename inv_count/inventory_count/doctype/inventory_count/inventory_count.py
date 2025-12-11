@@ -109,7 +109,8 @@ def import_data_with_pandas(inventory_count_name):
 
         else:
             frappe.throw(_("Invalid import source type selected in 'Inventory Count Settings'. Please choose 'CSV' or 'SQL Database'."), title=_("Invalid Source Type"))
-
+        
+        df_item_list.fillna(0)
         if not df_item_list.empty:
         # Create a map of IV_Item_RecID to row data from df_item_list
             df_item_list_map = {}
