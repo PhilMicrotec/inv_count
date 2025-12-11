@@ -113,7 +113,7 @@ def import_data_with_pandas(inventory_count_name):
         
         if not df_item_list.empty and sql_query_2:
         # Create a map of IV_Item_RecID to row data from df_item_list
-            df_item_list.fillna(0)
+            df_item_list=df_item_list.fillna(0)
             df_item_list_map = {}
             for index2, row2 in df_item_list.iterrows():
                 recid = row2.get('IV_Item_RecID')
