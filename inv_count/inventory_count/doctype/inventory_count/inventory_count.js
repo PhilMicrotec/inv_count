@@ -705,7 +705,7 @@ function populateSubCategoryDropdown(frm) {
         
         frm.doc.inv_virtual_items.forEach((item, index) => {
             // Ensure the category exists and is a string before adding
-            if (item.subcatname && typeof item.subcatname === 'string' && item.category === frm.doc.category) {
+            if (item.subcatname && typeof item.subcatname === 'string' && item.category === frm.doc.category && frm.doc.category) {
                 categories.add(item.subcatname);
             } else {
                 console.warn(`Skipped item ${index} due to invalid or empty category. Value:`, item.subcatname);
