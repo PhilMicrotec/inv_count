@@ -26,7 +26,8 @@
   "sql_database",
   "sql_username",
   "sql_password",
-  "sql_query"
+  "sql_query",
+  "sql_query_2"
  ],
  "fields": [
   {
@@ -104,6 +105,14 @@
    "fieldname": "sql_query",
    "fieldtype": "Code",
    "label": "SQL Query",
+   "options": "SQL"
+  },
+  {
+   "depends_on": "eval:doc.import_source_type == 'SQL Database'",
+   "description": "Example: SELECT Location, Item_ID, QOH FROM your_inventory_table",
+   "fieldname": "sql_query_2",
+   "fieldtype": "Code",
+   "label": "SQL Query #2",
    "options": "SQL"
   },
   {

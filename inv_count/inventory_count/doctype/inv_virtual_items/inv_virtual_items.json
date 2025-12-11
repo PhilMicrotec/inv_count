@@ -11,6 +11,7 @@
   "item_id",
   "shortdescription",
   "category",
+  "subcatname",
   "vendor_recid",
   "vendor_name",
   "warehouse_recid",
@@ -56,6 +57,11 @@
    "fieldname": "category",
    "fieldtype": "Data",
    "label": "Category"
+  },
+  {
+   "fieldname": "subcatname",
+   "fieldtype": "Data",
+   "label": "SubCategory"
   },
   {
    "fieldname": "vendor_recid",

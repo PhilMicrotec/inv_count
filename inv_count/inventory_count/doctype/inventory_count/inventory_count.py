@@ -83,6 +83,7 @@ def import_data_with_pandas(inventory_count_name):
             sql_username = settings_doc.sql_username
             sql_password = settings_doc.get_password('sql_password')
             sql_query = settings_doc.sql_query
+            sql_query_2 = settings_doc.sql_query_2
 
             sql_query = sql_query.replace("{warehouse_id}", warehouse_id).replace("{warehouse_bin_id}", warehouse_bin_id).replace("{valuation_date}", valuation_date)
 
@@ -94,6 +95,8 @@ def import_data_with_pandas(inventory_count_name):
                 conn_str = f"DRIVER={{ODBC Driver 17 for SQL Server}};SERVER={sql_host},{sql_port};DATABASE={sql_database};UID={sql_username};PWD={sql_password};TrustServerCertificate=yes;Encrypt=yes"
                 conn = pyodbc.connect(conn_str)
                 df = pd.read_sql_query(sql_query, conn)
+                if sql_query_2 is not None: 
+                    df_item_list = pd.read_sql_query(sql_query_2, conn)
                 conn.close()
 
             except pyodbc.Error as e:
@@ -105,6 +108,14 @@ def import_data_with_pandas(inventory_count_name):
 
         else:
             frappe.throw(_("Invalid import source type selected in 'Inventory Count Settings'. Please choose 'CSV' or 'SQL Database'."), title=_("Invalid Source Type"))
+
+        if not df_item_list.empty:
+        # Create a map of IV_Item_RecID to row data from df_item_list
+            df_item_list_map = {}
+            for _, row2 in df_item_list.iterrows():
+                recid = row2.get('IV_Item_RecID')
+                if pd.notna(recid):
+                    df_item_list_map[recid] = row2
 
         # --- Common logic after DataFrame is loaded ---
         df = df.fillna(0)
@@ -151,6 +162,47 @@ def import_data_with_pandas(inventory_count_name):
             except Exception as e:
                 frappe.log_error(f"Error mapping data row: {row}. Error: {e}", "Inventory Count Data Mapping Error") # Internal log, not for translation
                 frappe.throw(_("Error mapping data row to child table: {0}. Check your CSV/SQL column names and data types.").format(e), title=_("Data Mapping Error"))
+
+        if 'df_item_list_map' in locals() and df_item_list_map:
+            # Create a map of existing items by IV_Item_RecID for quick lookup
+            existing_items_map = {}
+            for child in inventory_count_doc.get(child_table_field_name):
+                if child.iv_item_recid:
+                    existing_items_map[child.iv_item_recid] = child
+            
+            # Process each item from df2
+            for recid, row2 in df_item_list_map.items():
+                if recid in existing_items_map:
+                    # Update existing item with additional data from df2
+                    child_item = existing_items_map[recid]
+                    child_item.subcatname = row2.get('subCatName', '')
+                else:
+                    # Create new item from df2 data
+                    child_item = inventory_count_doc.append(child_table_field_name, {})
+                    child_item.location = ''
+                    child_item.iv_item_recid = row2.get('IV_Item_RecID', '')
+                    child_item.item_id = str(row2.get('Item_ID', '')).upper()
+                    child_item.shortdescription = row2.get('Description', '')
+                    child_item.category = row2.get('catName', '')
+                    child_item.vendor_recid = row2.get('Vendor_RecID', '')
+                    child_item.vendor_name = row2.get('Vendor_Name', '')
+                    child_item.warehouse_recid = ''
+                    child_item.warehouse = ''
+                    child_item.warehouse_bin_recid = ''
+                    child_item.bin = ''
+                    child_item.qoh = 0
+                    child_item.qty = 0
+                    child_item.lasttransactiondate = None
+                    child_item.iv_audit_recid = ''
+                    child_item.pickednotshipped = 0
+                    child_item.pickednotshippedcost = 0.0
+                    child_item.pickednotinvoiced = 0
+                    child_item.pickednotinvoicedcost = 0.0
+                    child_item.selectedcost = 0
+                    child_item.extendedcost = 0.0
+                    child_item.snlist = ''
+                    # New fields from df2
+                    child_item.subcatname = row2.get('subCatName', '')
 
         inventory_count_doc.save()
         frappe.db.commit() # Ensure changes are persisted in the database
