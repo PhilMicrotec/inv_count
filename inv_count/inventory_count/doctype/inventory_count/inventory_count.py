@@ -240,6 +240,7 @@ def compare_child_tables(doc_name):
         doc = frappe.get_doc("Inventory Count", doc_name)
 
         main_category_filter = doc.get("category")
+        sub_category_filter = doc.get("subcategory")
         
         all_physical_items = doc.get("inv_physical_items")
         all_virtual_items = doc.get("inv_virtual_items")
@@ -259,7 +260,17 @@ def compare_child_tables(doc_name):
         virtual_items_to_compare = []
 
         # Decide which items to compare based on the category filter
-        if main_category_filter:
+        if sub_category_filter:
+            # Filter virtual items by the selected category
+            virtual_items_to_compare = [
+                item for item in all_virtual_items if item.category == main_category_filter and item.subcatname == sub_category_filter
+            ]
+            
+            # If physical items should *also* be filtered by category:
+            physical_items_to_compare = [
+                item for item in all_physical_items 
+            ]
+        elif main_category_filter:
             # Filter virtual items by the selected category
             virtual_items_to_compare = [
                 item for item in all_virtual_items if item.category == main_category_filter
