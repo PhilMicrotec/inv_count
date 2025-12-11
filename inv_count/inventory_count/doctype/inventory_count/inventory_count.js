@@ -94,7 +94,6 @@ frappe.ui.form.on('Inventory Count', {
                             frm.reload_doc().then(() => {
                                 // Then, populate the categories using the fresh data
                                 populateMainCategoryDropdown(frm);
-                                populateSubCategoryDropdown(frm);
                                 python_request_in_progress(false); // Re-enable auto-update after import
                             });
                         
@@ -409,6 +408,7 @@ frappe.ui.form.on('Inventory Count', {
     },
 
     category: function(frm) {
+            populateSubCategoryDropdown(frm);
             frm.save();
     },
     subcategory: function(frm) {
@@ -705,7 +705,7 @@ function populateSubCategoryDropdown(frm) {
         
         frm.doc.inv_virtual_items.forEach((item, index) => {
             // Ensure the category exists and is a string before adding
-            if (item.subcatname && typeof item.subcatname === 'string') {
+            if (item.subcatname && typeof item.subcatname === 'string' && item.category === frm.doc.category) {
                 categories.add(item.subcatname);
             } else {
                 console.warn(`Skipped item ${index} due to invalid or empty category. Value:`, item.subcatname);
