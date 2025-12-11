@@ -49,6 +49,7 @@ def import_data_with_pandas(inventory_count_name):
 
     try:
         df = pd.DataFrame() # Initialize an empty DataFrame
+        df_item_list = pd.DataFrame() # Initialize an empty DataFrame for second query if needed
         
         # Determine import source type from settings
         import_source_type = settings_doc.import_source_type
@@ -95,7 +96,6 @@ def import_data_with_pandas(inventory_count_name):
                 conn_str = f"DRIVER={{ODBC Driver 17 for SQL Server}};SERVER={sql_host},{sql_port};DATABASE={sql_database};UID={sql_username};PWD={sql_password};TrustServerCertificate=yes;Encrypt=yes"
                 conn = pyodbc.connect(conn_str)
                 df = pd.read_sql_query(sql_query, conn)
-                df_item_list = pd.DataFrame()
                 if sql_query_2: 
                     df_item_list = pd.read_sql_query(sql_query_2, conn)
                 conn.close()
@@ -110,9 +110,10 @@ def import_data_with_pandas(inventory_count_name):
         else:
             frappe.throw(_("Invalid import source type selected in 'Inventory Count Settings'. Please choose 'CSV' or 'SQL Database'."), title=_("Invalid Source Type"))
         
-        df_item_list.fillna(0)
-        if not df_item_list.empty:
+        
+        if not df_item_list.empty and sql_query_2:
         # Create a map of IV_Item_RecID to row data from df_item_list
+            df_item_list.fillna(0)
             df_item_list_map = {}
             for index2, row2 in df_item_list.iterrows():
                 recid = row2.get('IV_Item_RecID')
