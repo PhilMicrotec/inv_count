@@ -95,7 +95,8 @@ def import_data_with_pandas(inventory_count_name):
                 conn_str = f"DRIVER={{ODBC Driver 17 for SQL Server}};SERVER={sql_host},{sql_port};DATABASE={sql_database};UID={sql_username};PWD={sql_password};TrustServerCertificate=yes;Encrypt=yes"
                 conn = pyodbc.connect(conn_str)
                 df = pd.read_sql_query(sql_query, conn)
-                if sql_query_2 is not '': 
+                df_item_list = pd.DataFrame()
+                if sql_query_2: 
                     df_item_list = pd.read_sql_query(sql_query_2, conn)
                 conn.close()
 
